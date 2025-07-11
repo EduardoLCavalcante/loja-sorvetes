@@ -1,0 +1,82 @@
+[
+  {
+    "nome_arquivo": "sorvete-mareni-cone-show-brigadeiro.png",
+    "categoria": "ConeShow",
+    "nome_produto": "Sorvete-Mareni-Cone-Show-Brigadeiro",
+    "descricao": "",
+    "preco": "",
+    "caminho": "ConeShow/sorvete-mareni-cone-show-brigadeiro.png"
+  },
+  {
+    "nome_arquivo": "sorvete-mareni-cone-show-crocante.png",
+    "categoria": "ConeShow",
+    "nome_produto": "Sorvete-Mareni-Cone-Show-Crocante",
+    "descricao": "",
+    "preco": "",
+    "caminho": "ConeShow/sorvete-mareni-cone-show-crocante.png"
+  },
+  {
+    "nome_arquivo": "copao-chocreme-mareni.png",
+    "categoria": "Copao",
+    "nome_produto": "Copao-Chocreme-Mareni",
+    "descricao": "",
+    "preco": "",
+    "caminho": "Cop╞o/copao-chocreme-mareni.png"
+  },
+  {
+    "nome_arquivo": "copao-napolitano-mareni.png",
+    "categoria": "Copao",
+    "nome_produto": "Copao-Napolitano-Mareni",
+    "descricao": "",
+    "preco": "",
+    "caminho": "Cop╞o/copao-napolitano-mareni.png"
+  },
+  {
+    "nome_arquivo": "bombom.png",
+    "categoria": "Copo",
+    "nome_produto": "Bombom",
+    "descricao": "",
+    "preco": "",
+    "caminho": "Copo/bombom.png"
+  },
+  {
+    "nome_arquivo": "creme.png",
+    "categoria": "Copo",
+    "nome_produto": "Creme",
+    "descricao": "",
+    "preco": "",
+    "caminho": "Copo/creme.png"
+  },
+  {
+    "nome_arquivo": "napolitano-1.png",
+    "categoria": "Copo",
+    "nome_produto": "Napolitano-1",
+    "descricao": "",
+    "preco": "",
+    "caminho": "Copo/napolitano-1.png"
+  },
+  {
+    "nome_arquivo": "light-zero.png",
+    "categoria": "Light",
+    "nome_produto": "Light-Zero",
+    "descricao": "",
+    "preco": "",
+    "caminho": "Light/light-zero.png"
+  },
+  {
+    "nome_arquivo": "chocolate-1.png",
+    "categoria": "Sundae",
+    "nome_produto": "Chocolate-1",
+    "descricao": "",
+    "preco": "",
+    "caminho": "Sundae/chocolate-1.png"
+  },
+  {
+    "nome_arquivo": "morango-1.png",
+    "categoria": "Sundae",
+    "nome_produto": "Morango-1",
+    "descricao": "",
+    "preco": "",
+    "caminho": "Sundae/morango-1.png"
+  }
+]
