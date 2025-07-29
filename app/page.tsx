@@ -44,14 +44,12 @@ interface ProductWithDefaults extends Product {
   isBestSeller: boolean
 }
 
-// Adicionar o mock de produtos logo após as interfaces, antes das funções de formatação
-
 // Mock de produtos para exibição
 const mockProducts: Product[] = [
   {
     nome_arquivo: "sorvete-chocolate-premium.jpg",
     categoria: "Copo",
-    nome_produto: "mareni-chocolate-premium",
+    nome_produto: "dlice-chocolate-premium",
     descricao:
       "Sorvete cremoso de chocolate belga com pedaços de chocolate meio amargo. Uma experiência única para os amantes do chocolate.",
     preco: "18.90",
@@ -60,7 +58,7 @@ const mockProducts: Product[] = [
   {
     nome_arquivo: "sorvete-morango-natural.jpg",
     categoria: "Copo",
-    nome_produto: "mareni-morango-natural",
+    nome_produto: "dlice-morango-natural",
     descricao:
       "Feito com morangos frescos selecionados, nosso sorvete de morango traz todo o sabor da fruta em cada colherada.",
     preco: "16.50",
@@ -69,7 +67,7 @@ const mockProducts: Product[] = [
   {
     nome_arquivo: "sorvete-baunilha-madagascar.jpg",
     categoria: "Copo",
-    nome_produto: "mareni-baunilha-madagascar",
+    nome_produto: "dlice-baunilha-madagascar",
     descricao: "Baunilha premium de Madagascar com notas aromáticas intensas. Clássico e sofisticado.",
     preco: "17.90",
     caminho: "sorvete-baunilha-madagascar.jpg",
@@ -77,7 +75,7 @@ const mockProducts: Product[] = [
   {
     nome_arquivo: "cone-show-chocolate-morango.jpg",
     categoria: "ConeShow",
-    nome_produto: "mareni-cone-show-chocolate-morango",
+    nome_produto: "dlice-cone-show-chocolate-morango",
     descricao: "Cone crocante recheado com sorvete de chocolate e morango, coberto com calda especial e granulado.",
     preco: "22.90",
     caminho: "cone-show-chocolate-morango.jpg",
@@ -85,7 +83,7 @@ const mockProducts: Product[] = [
   {
     nome_arquivo: "cone-show-cookies-cream.jpg",
     categoria: "ConeShow",
-    nome_produto: "mareni-cone-show-cookies-cream",
+    nome_produto: "dlice-cone-show-cookies-cream",
     descricao: "Delicioso cone com sorvete de cookies & cream, pedaços de biscoito e cobertura de chocolate.",
     preco: "24.50",
     caminho: "cone-show-cookies-cream.jpg",
@@ -93,7 +91,7 @@ const mockProducts: Product[] = [
   {
     nome_arquivo: "copao-frutas-vermelhas.jpg",
     categoria: "Copao",
-    nome_produto: "mareni-copao-frutas-vermelhas",
+    nome_produto: "dlice-copao-frutas-vermelhas",
     descricao: "Copão generoso com mix de frutas vermelhas: morango, framboesa e amora. Refrescante e saboroso.",
     preco: "28.90",
     caminho: "copao-frutas-vermelhas.jpg",
@@ -101,7 +99,7 @@ const mockProducts: Product[] = [
   {
     nome_arquivo: "copao-chocolate-nuts.jpg",
     categoria: "Copao",
-    nome_produto: "mareni-copao-chocolate-nuts",
+    nome_produto: "dlice-copao-chocolate-nuts",
     descricao: "Copão com sorvete de chocolate, castanhas, nozes e cobertura de chocolate quente.",
     preco: "32.50",
     caminho: "copao-chocolate-nuts.jpg",
@@ -109,7 +107,7 @@ const mockProducts: Product[] = [
   {
     nome_arquivo: "light-coco-zero.jpg",
     categoria: "Light",
-    nome_produto: "mareni-light-coco-zero",
+    nome_produto: "dlice-light-coco-zero",
     descricao:
       "Sorvete de coco zero açúcar, cremoso e saboroso. Perfeito para quem cuida da saúde sem abrir mão do prazer.",
     preco: "19.90",
@@ -118,7 +116,7 @@ const mockProducts: Product[] = [
   {
     nome_arquivo: "light-chocolate-diet.jpg",
     categoria: "Light",
-    nome_produto: "mareni-light-chocolate-diet",
+    nome_produto: "dlice-light-chocolate-diet",
     descricao: "Chocolate diet com 70% menos calorias. Sabor intenso sem culpa.",
     preco: "20.50",
     caminho: "light-chocolate-diet.jpg",
@@ -126,7 +124,7 @@ const mockProducts: Product[] = [
   {
     nome_arquivo: "sundae-caramelo-especial.jpg",
     categoria: "Sundae",
-    nome_produto: "mareni-sundae-caramelo-especial",
+    nome_produto: "dlice-sundae-caramelo-especial",
     descricao: "Sundae com sorvete de baunilha, calda de caramelo artesanal, chantilly e cereja.",
     preco: "26.90",
     caminho: "sundae-caramelo-especial.jpg",
@@ -134,7 +132,7 @@ const mockProducts: Product[] = [
   {
     nome_arquivo: "sundae-chocolate-brownie.jpg",
     categoria: "Sundae",
-    nome_produto: "mareni-sundae-chocolate-brownie",
+    nome_produto: "dlice-sundae-chocolate-brownie",
     descricao: "Sundae com sorvete de chocolate, pedaços de brownie, calda quente e castanhas.",
     preco: "29.90",
     caminho: "sundae-chocolate-brownie.jpg",
@@ -142,7 +140,7 @@ const mockProducts: Product[] = [
   {
     nome_arquivo: "sorvete-pistache-siciliano.jpg",
     categoria: "Copo",
-    nome_produto: "mareni-pistache-siciliano",
+    nome_produto: "dlice-pistache-siciliano",
     descricao: "Sorvete artesanal de pistache siciliano, cremoso e com sabor marcante. Edição especial.",
     preco: "25.90",
     caminho: "sorvete-pistache-siciliano.jpg",
@@ -174,7 +172,7 @@ const formatProductName = (name: string) => {
   return name
     .replace(/-/g, " ")
     .replace(/\b\w/g, (l) => l.toUpperCase())
-    .replace(/Mareni/gi, "")
+    .replace(/Dlice/gi, "")
     .trim()
 }
 
@@ -190,7 +188,7 @@ const formatCategoryName = (category: string) => {
   return categoryNames[category] || category
 }
 
-export default function MareniEcommerce() {
+export default function DliceEcommerce() {
   const { cart, addToCart, removeFromCart, updateQuantity, getTotalPrice, getTotalItems } = useCart()
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
@@ -217,8 +215,6 @@ export default function MareniEcommerce() {
   const handleImageError = (productId: number) => {
     setImageErrors((prev) => ({ ...prev, [productId]: true }))
   }
-
-  // Modificar a função loadProducts para usar o mock como fallback
 
   // Carregar produtos do JSON
   useEffect(() => {
@@ -296,7 +292,7 @@ export default function MareniEcommerce() {
       )
       .join("\n")
 
-    const message = `🍦 *Pedido Mareni Sorvetes Artesanais* 🍦
+    const message = `🍦 *Pedido D'lice Sorvetes* 🍦
 
 *Produtos Selecionados:*
 ${items}
@@ -320,7 +316,7 @@ Gostaria de confirmar este pedido! 😋`
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 text-lg">Carregando produtos deliciosos...</p>
@@ -330,9 +326,9 @@ Gostaria de confirmar este pedido! 😋`
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50">
       {/* Enhanced Header */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-pink-100 shadow-lg">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-orange-100 shadow-lg">
         <div className="container mx-auto px-4">
           {/* Top Bar */}
           <div className="flex items-center justify-between py-2 text-sm text-gray-600 border-b border-gray-100">
@@ -362,18 +358,13 @@ Gostaria de confirmar este pedido! 😋`
               className="flex items-center space-x-3"
             >
               <div className="relative">
-                <div className="w-12 h-12 bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-500 rounded-2xl flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-xl">M</span>
-                </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center">
-                  <Award className="w-2 h-2 text-yellow-800" />
-                </div>
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                  Mareni
-                </h1>
-                <p className="text-xs text-gray-500 font-medium">Sorvetes Artesanais Premium</p>
+                <Image
+                  src="/images/dlice-logo.png"
+                  alt="D'lice Sorvetes"
+                  width={120}
+                  height={60}
+                  className="h-12 w-auto object-contain"
+                />
               </div>
             </motion.div>
 
@@ -385,7 +376,7 @@ Gostaria de confirmar este pedido! 😋`
                   placeholder="Buscar sabores..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-3 rounded-full border-2 border-pink-100 focus:border-pink-300 bg-white/80 backdrop-blur-sm"
+                  className="pl-10 pr-4 py-3 rounded-full border-2 border-orange-100 focus:border-pink-300 bg-white/80 backdrop-blur-sm"
                 />
               </div>
             </div>
@@ -400,14 +391,14 @@ Gostaria de confirmar este pedido! 😋`
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setIsCartOpen(true)}
-                className="relative p-3 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
+                className="relative p-3 bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 <ShoppingCart className="w-6 h-6" />
                 {getTotalItems() > 0 && (
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-lg"
+                    className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-lg"
                   >
                     {getTotalItems()}
                   </motion.span>
@@ -427,8 +418,8 @@ Gostaria de confirmar este pedido! 😋`
                   onClick={() => setSelectedCategory(category)}
                   className={`px-6 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 ${
                     selectedCategory === category
-                      ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-lg"
-                      : "bg-white/80 text-gray-600 hover:bg-pink-50 border border-pink-100"
+                      ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-lg"
+                      : "bg-white/80 text-gray-600 hover:bg-orange-50 border border-orange-100"
                   }`}
                 >
                   {category === "Todos" ? category : formatCategoryName(category)}
@@ -441,10 +432,10 @@ Gostaria de confirmar este pedido! 😋`
 
       {/* Hero Section */}
       <section className="relative py-16 px-4 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-pink-600/10 via-purple-600/10 to-indigo-600/10" />
+        <div className="absolute inset-0 bg-gradient-to-r from-pink-600/10 via-rose-600/10 to-orange-600/10" />
         <div className="container mx-auto text-center relative z-10">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto">
-            <h2 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent leading-tight">
+            <h2 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-pink-600 via-rose-600 to-orange-600 bg-clip-text text-transparent leading-tight">
               Sorvetes Artesanais
               <br />
               <span className="text-4xl md:text-5xl">de Outro Mundo</span>
@@ -482,7 +473,7 @@ Gostaria de confirmar este pedido! 😋`
                 className="mb-16"
               >
                 <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-3xl font-bold text-gray-800 bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+                  <h3 className="text-3xl font-bold text-gray-800 bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">
                     {formatCategoryName(categoryName)}
                   </h3>
                   <Badge variant="outline" className="text-pink-600 border-pink-200">
@@ -577,14 +568,14 @@ Gostaria de confirmar este pedido! 😋`
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setIsCartOpen(true)}
-              className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white p-4 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center space-x-3"
+              className="bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 text-white p-4 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center space-x-3"
             >
               <div className="relative">
                 <ShoppingCart className="w-6 h-6" />
                 <motion.span
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold"
+                  className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold"
                 >
                   {getTotalItems()}
                 </motion.span>
@@ -631,27 +622,26 @@ Gostaria de confirmar este pedido! 😋`
 
                 {cart.length === 0 ? (
                   <div className="text-center py-16">
-                    <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-br from-pink-100 to-purple-100 rounded-full flex items-center justify-center">
+                    <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-br from-orange-100 to-pink-100 rounded-full flex items-center justify-center">
                       <ShoppingCart className="w-12 h-12 text-pink-400" />
                     </div>
                     <h3 className="text-lg font-semibold text-gray-800 mb-2">Carrinho vazio</h3>
                     <p className="text-gray-500 mb-6">Adicione alguns sorvetes deliciosos!</p>
                     <Button
                       onClick={() => setIsCartOpen(false)}
-                      className="bg-gradient-to-r from-pink-500 to-purple-500 text-white px-8 py-3 rounded-full"
+                      className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-8 py-3 rounded-full"
                     >
                       Continuar Comprando
                     </Button>
                   </div>
                 ) : (
                   <>
-                    {/* Atualizar a seção do carrinho para usar o estado de erro de imagem */}
                     <div className="space-y-4 mb-6">
                       {cart.map((item) => (
                         <motion.div
                           key={item.id}
                           layout
-                          className="flex items-center space-x-4 p-4 bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl border border-pink-100"
+                          className="flex items-center space-x-4 p-4 bg-gradient-to-r from-orange-50 to-pink-50 rounded-2xl border border-orange-100"
                         >
                           {!imageErrors[item.id] ? (
                             <Image
@@ -663,7 +653,7 @@ Gostaria de confirmar este pedido! 😋`
                               onError={() => handleImageError(item.id)}
                             />
                           ) : (
-                            <div className="w-20 h-20 bg-gradient-to-br from-pink-200 to-purple-200 rounded-xl flex items-center justify-center">
+                            <div className="w-20 h-20 bg-gradient-to-br from-orange-200 to-pink-200 rounded-xl flex items-center justify-center">
                               <span className="text-2xl">🍦</span>
                             </div>
                           )}
@@ -678,7 +668,7 @@ Gostaria de confirmar este pedido! 😋`
                             <Button
                               size="icon"
                               variant="outline"
-                              className="w-8 h-8 rounded-full border-pink-200 hover:bg-pink-50 bg-transparent"
+                              className="w-8 h-8 rounded-full border-orange-200 hover:bg-orange-50 bg-transparent"
                               onClick={() => updateQuantity(item.id, item.quantity - 1)}
                             >
                               <Minus className="w-4 h-4" />
@@ -687,7 +677,7 @@ Gostaria de confirmar este pedido! 😋`
                             <Button
                               size="icon"
                               variant="outline"
-                              className="w-8 h-8 rounded-full border-pink-200 hover:bg-pink-50 bg-transparent"
+                              className="w-8 h-8 rounded-full border-orange-200 hover:bg-orange-50 bg-transparent"
                               onClick={() => updateQuantity(item.id, item.quantity + 1)}
                             >
                               <Plus className="w-4 h-4" />
@@ -697,7 +687,7 @@ Gostaria de confirmar este pedido! 😋`
                       ))}
                     </div>
 
-                    <div className="border-t border-pink-100 pt-6 mb-6">
+                    <div className="border-t border-orange-100 pt-6 mb-6">
                       <div className="space-y-2 mb-4">
                         <div className="flex justify-between text-gray-600">
                           <span>Subtotal:</span>
@@ -710,7 +700,7 @@ Gostaria de confirmar este pedido! 😋`
                           </span>
                         </div>
                       </div>
-                      <div className="flex justify-between items-center text-2xl font-bold border-t border-pink-100 pt-4">
+                      <div className="flex justify-between items-center text-2xl font-bold border-t border-orange-100 pt-4">
                         <span>Total:</span>
                         <span className="text-pink-600">
                           R$ {(getTotalPrice() + (getTotalPrice() >= 50 ? 0 : 8.9)).toFixed(2)}
@@ -723,7 +713,7 @@ Gostaria de confirmar este pedido! 😋`
                         setIsCartOpen(false)
                         setIsCheckoutOpen(true)
                       }}
-                      className="w-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600 text-white py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                      className="w-full bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 hover:from-pink-600 hover:via-rose-600 hover:to-pink-700 text-white py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
                     >
                       Finalizar Pedido
                     </Button>
@@ -767,7 +757,7 @@ Gostaria de confirmar este pedido! 😋`
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Formulário de dados */}
                     <div className="space-y-6">
-                      <h3 className="text-lg font-semibold text-gray-800 border-b border-pink-100 pb-2">
+                      <h3 className="text-lg font-semibold text-gray-800 border-b border-orange-100 pb-2">
                         Dados para Entrega
                       </h3>
 
@@ -781,7 +771,7 @@ Gostaria de confirmar este pedido! 😋`
                             value={deliveryInfo.name}
                             onChange={(e) => setDeliveryInfo({ ...deliveryInfo, name: e.target.value })}
                             placeholder="Seu nome completo"
-                            className="mt-2 p-3 rounded-xl border-2 border-pink-100 focus:border-pink-300"
+                            className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
                           />
                         </div>
 
@@ -794,7 +784,7 @@ Gostaria de confirmar este pedido! 😋`
                             value={deliveryInfo.phone}
                             onChange={(e) => setDeliveryInfo({ ...deliveryInfo, phone: e.target.value })}
                             placeholder="(11) 99999-9999"
-                            className="mt-2 p-3 rounded-xl border-2 border-pink-100 focus:border-pink-300"
+                            className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
                           />
                         </div>
                       </div>
@@ -808,7 +798,7 @@ Gostaria de confirmar este pedido! 😋`
                           value={deliveryInfo.address}
                           onChange={(e) => setDeliveryInfo({ ...deliveryInfo, address: e.target.value })}
                           placeholder="Rua, número"
-                          className="mt-2 p-3 rounded-xl border-2 border-pink-100 focus:border-pink-300"
+                          className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
                         />
                       </div>
 
@@ -822,7 +812,7 @@ Gostaria de confirmar este pedido! 😋`
                             value={deliveryInfo.complement}
                             onChange={(e) => setDeliveryInfo({ ...deliveryInfo, complement: e.target.value })}
                             placeholder="Apartamento, bloco, etc."
-                            className="mt-2 p-3 rounded-xl border-2 border-pink-100 focus:border-pink-300"
+                            className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
                           />
                         </div>
 
@@ -835,7 +825,7 @@ Gostaria de confirmar este pedido! 😋`
                             value={deliveryInfo.neighborhood}
                             onChange={(e) => setDeliveryInfo({ ...deliveryInfo, neighborhood: e.target.value })}
                             placeholder="Seu bairro"
-                            className="mt-2 p-3 rounded-xl border-2 border-pink-100 focus:border-pink-300"
+                            className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
                           />
                         </div>
                       </div>
@@ -849,20 +839,19 @@ Gostaria de confirmar este pedido! 😋`
                           value={deliveryInfo.city}
                           onChange={(e) => setDeliveryInfo({ ...deliveryInfo, city: e.target.value })}
                           placeholder="Sua cidade"
-                          className="mt-2 p-3 rounded-xl border-2 border-pink-100 focus:border-pink-300"
+                          className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
                         />
                       </div>
                     </div>
 
                     {/* Resumo do pedido */}
                     <div className="space-y-6">
-                      <h3 className="text-lg font-semibold text-gray-800 border-b border-pink-100 pb-2">
+                      <h3 className="text-lg font-semibold text-gray-800 border-b border-orange-100 pb-2">
                         Resumo do Pedido
                       </h3>
 
-                      <div className="bg-gradient-to-r from-pink-50 to-purple-50 p-4 md:p-6 rounded-2xl border border-pink-100 max-h-80 overflow-y-auto">
+                      <div className="bg-gradient-to-r from-orange-50 to-pink-50 p-4 md:p-6 rounded-2xl border border-orange-100 max-h-80 overflow-y-auto">
                         <div className="space-y-3">
-                          {/* Também atualizar as imagens no resumo do pedido */}
                           {cart.map((item) => (
                             <div key={item.id} className="flex justify-between items-center py-2">
                               <div className="flex items-center space-x-3">
@@ -876,7 +865,7 @@ Gostaria de confirmar este pedido! 😋`
                                     onError={() => handleImageError(item.id)}
                                   />
                                 ) : (
-                                  <div className="w-10 h-10 bg-gradient-to-br from-pink-200 to-purple-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                                  <div className="w-10 h-10 bg-gradient-to-br from-orange-200 to-pink-200 rounded-lg flex items-center justify-center flex-shrink-0">
                                     <span className="text-sm">🍦</span>
                                   </div>
                                 )}
@@ -946,8 +935,6 @@ Gostaria de confirmar este pedido! 😋`
   )
 }
 
-// Atualizar o componente ProductCard para usar placeholder quando a imagem não carregar
-
 // Componente do Card do Produto
 function ProductCard({
   product,
@@ -974,9 +961,9 @@ function ProductCard({
               onError={() => setImageErrors({ ...imageErrors, [product.id]: true })}
             />
           ) : (
-            <div className="w-full h-64 bg-gradient-to-br from-pink-100 via-purple-100 to-indigo-100 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+            <div className="w-full h-64 bg-gradient-to-br from-orange-100 via-pink-100 to-amber-100 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
               <div className="text-center">
-                <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-pink-300 to-purple-300 rounded-full flex items-center justify-center">
+                <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-pink-300 to-orange-300 rounded-full flex items-center justify-center">
                   <span className="text-3xl">🍦</span>
                 </div>
                 <p className="text-gray-500 text-sm font-medium">{formatProductName(product.nome_produto)}</p>
@@ -1009,7 +996,7 @@ function ProductCard({
 
         <CardContent className="p-6 flex flex-col flex-grow">
           <div className="flex items-center justify-between mb-2">
-            <Badge variant="outline" className="text-xs font-medium border-pink-200 text-pink-600">
+            <Badge variant="outline" className="text-xs font-medium border-orange-200 text-pink-600">
               {formatCategoryName(product.categoria)}
             </Badge>
             <div className="flex items-center space-x-1">
@@ -1040,7 +1027,7 @@ function ProductCard({
               whileTap={{ scale: 0.95 }}
               data-product-id={product.id}
               onClick={() => onAddToCart(product)}
-              className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 hover:from-pink-600 hover:via-purple-600 hover:to-indigo-600 text-white px-6 py-3 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl flex items-center space-x-2 font-semibold"
+              className="bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 hover:from-pink-600 hover:via-rose-600 hover:to-pink-700 text-white px-6 py-3 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl flex items-center space-x-2 font-semibold"
             >
               <Plus className="w-4 h-4" />
               <span>Adicionar</span>

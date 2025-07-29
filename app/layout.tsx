@@ -7,10 +7,10 @@ import { CartProvider } from "./context/CartContext"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Mareni Sorvetes - Sorvetes Artesanais Premium",
+  title: "D'lice Sorvetes - Sorvetes Artesanais Premium",
   description: "Sorvetes artesanais premium com ingredientes selecionados. Entrega rápida e gelada na sua casa!",
-  keywords: "sorvetes, artesanal, premium, entrega, gelato, sobremesa",
-    generator: 'v0.dev'
+  keywords: "sorvetes, artesanal, premium, entrega, gelato, sobremesa, d'lice",
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
