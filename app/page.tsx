@@ -371,7 +371,7 @@ ${deliveryInfo.complement ? `📍 Complemento: ${deliveryInfo.complement}` : ""}
 Gostaria de confirmar este pedido! 😋`
 
     const encodedMessage = encodeURIComponent(message)
-    const whatsappUrl = `https://wa.me/5511999999999?text=${encodedMessage}`
+    const whatsappUrl = `https://wa.me/5588996867186?text=${encodedMessage}`
     window.open(whatsappUrl, "_blank")
   }
 
