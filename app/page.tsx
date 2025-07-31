@@ -394,10 +394,6 @@ Gostaria de confirmar este pedido! 😋`
           {/* Top Bar */}
           <div className="flex items-center justify-between py-2 text-sm text-gray-600 border-b border-gray-100">
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-1">
-                <Truck className="w-4 h-4 text-pink-500" />
-                <span>Entrega grátis acima de R$ 50</span>
-              </div>
               <div className="hidden md:flex items-center space-x-1">
                 <Clock className="w-4 h-4 text-pink-500" />
                 <span>Entrega em até 2h</span>
@@ -406,7 +402,7 @@ Gostaria de confirmar este pedido! 😋`
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-1">
                 <MapPin className="w-4 h-4 text-pink-500" />
-                <span>São Paulo - SP</span>
+                <span>Limoeiro do Norte - CE</span>
               </div>
             </div>
           </div>
@@ -497,12 +493,12 @@ Gostaria de confirmar este pedido! 😋`
         <div className="container mx-auto text-center relative z-10">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto">
             <h2 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-pink-600 via-rose-600 to-orange-600 bg-clip-text text-transparent leading-tight">
-              Sorvetes Artesanais
+              Sorvetes
               <br />
               <span className="text-4xl md:text-5xl">de Outro Mundo</span>
             </h2>
             <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-              Ingredientes premium selecionados, receitas exclusivas e o sabor que você nunca esquece. Entregamos gelado
+              Sabor que você nunca esquece. Entregamos gelado
               na sua casa em até 2 horas!
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
@@ -510,10 +506,6 @@ Gostaria de confirmar este pedido! 😋`
                 <Star className="w-5 h-5 text-yellow-400 fill-current" />
                 <span className="font-semibold">4.9/5</span>
                 <span>• {products.length} produtos disponíveis</span>
-              </div>
-              <div className="flex items-center space-x-2 text-gray-600">
-                <Award className="w-5 h-5 text-pink-500" />
-                <span>Prêmio Melhor Sorvete 2024</span>
               </div>
             </div>
           </motion.div>
