@@ -147,6 +147,64 @@ const mockProducts: Product[] = [
   },
 ]
 
+// Mock de produtos para exibição - adicionar após os produtos existentes
+const newComboProducts: Product[] = [
+  {
+    nome_arquivo: "combo-coneshow.jpeg",
+    categoria: "Combos",
+    nome_produto: "dlice-combo-cone-show",
+    descricao:
+      "Combo especial com 6 unidades de Cone Show. Sorvetes cremosos de chocolate e baunilha em cones crocantes. Perfeito para compartilhar!",
+    preco: "39.99",
+    caminho: "combo-coneshow.jpeg",
+  },
+  {
+    nome_arquivo: "combo-familia.jpeg",
+    categoria: "Combos",
+    nome_produto: "dlice-combo-familia",
+    descricao:
+      "Combo Família com sorvetes Pavê + cone. Sabores: bombom, brigadeiro, creme com passas, nata goiaba, frutas tropicais, flocos, baunilha com causas de frutas vermelhas, napolitano, pavê e toffee.",
+    preco: "30.00",
+    caminho: "combo-familia.jpeg",
+  },
+  {
+    nome_arquivo: "combo-premium.jpeg",
+    categoria: "Combos",
+    nome_produto: "dlice-combo-premium",
+    descricao:
+      "Combo Premium com sorvete Ninho Trufado + 10 cones especiais. Uma experiência premium e deliciosa para toda família.",
+    preco: "32.00",
+    caminho: "combo-premium.jpeg",
+  },
+  {
+    nome_arquivo: "kit-aniversario.jpeg",
+    categoria: "Kits",
+    nome_produto: "dlice-kit-aniversario",
+    descricao:
+      "Kit Aniversário completo! Inclui sorvete Napolitano 10L + cobertura de morango + 40 cones. Combinação perfeita para festas e celebrações especiais.",
+    preco: "180.00",
+    caminho: "kit-aniversario.jpeg",
+  },
+  {
+    nome_arquivo: "combo-picole-frutas.jpeg",
+    categoria: "Picolés",
+    nome_produto: "dlice-combo-picole-frutas",
+    descricao:
+      "Combo Picolé Frutas com 7 unidades. Sabores tropicais: Cajá, Abacaxi, Goiaba, Graviola e Limão. Refrescante e natural!",
+    preco: "20.00",
+    caminho: "combo-picole-frutas.jpeg",
+  },
+  {
+    nome_arquivo: "combo-sunday.jpeg",
+    categoria: "Combos",
+    nome_produto: "dlice-combo-sunday",
+    descricao:
+      "Combo Sunday especial com 6 unidades. Sabores chocolate e morango com coberturas especiais. Ideal para o fim de semana!",
+    preco: "35.00",
+    caminho: "combo-sunday.jpeg",
+  },
+]
+
 // Função para gerar dados padrão para produtos
 const generateProductDefaults = (product: Product, index: number): ProductWithDefaults => {
   const basePrice = 15 + Math.random() * 20 // Preço entre 15 e 35
@@ -184,6 +242,9 @@ const formatCategoryName = (category: string) => {
     Copo: "Copo",
     Light: "Light",
     Sundae: "Sundae",
+    Combos: "Combos",
+    Kits: "Kits",
+    Picolés: "Picolés",
   }
   return categoryNames[category] || category
 }
