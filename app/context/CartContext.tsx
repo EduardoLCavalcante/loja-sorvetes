@@ -7,7 +7,7 @@ interface Product {
   nome_produto: string
   price: number
   caminho: string
-  categoria: string
+  categoria: string[]
   quantity: number
 }
 

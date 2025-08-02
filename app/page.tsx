@@ -27,7 +27,7 @@ import Image from "next/image"
 
 interface Product {
   nome_arquivo: string
-  categoria: string
+  categoria: string[]
   nome_produto: string
   descricao: string
   preco: string
@@ -47,178 +47,433 @@ interface ProductWithDefaults extends Product {
 // Mock de produtos para exibição
 const mockProducts: Product[] = [
   {
-    nome_arquivo: "sorvete-chocolate-premium.jpg",
-    categoria: "Copo",
-    nome_produto: "dlice-chocolate-premium",
-    descricao:
-      "Sorvete cremoso de chocolate belga com pedaços de chocolate meio amargo. Uma experiência única para os amantes do chocolate.",
-    preco: "18.90",
-    caminho: "sorvete-chocolate-premium.jpg",
+    nome_arquivo: "baunilha-frutas-vermelhas-2l.webp",
+    categoria: ["2L","Pote"],
+    nome_produto: "dlice-baunilha-frutas-vermelhas",
+    descricao: "Sorvete de baunilha com calda de frutas vermelhas. Cremoso e refrescante.",
+    preco: "24.00",
+    caminho: "baunilha-frutas-vermelhas-2l.webp",
   },
   {
-    nome_arquivo: "sorvete-morango-natural.jpg",
-    categoria: "Copo",
-    nome_produto: "dlice-morango-natural",
-    descricao:
-      "Feito com morangos frescos selecionados, nosso sorvete de morango traz todo o sabor da fruta em cada colherada.",
-    preco: "16.50",
-    caminho: "sorvete-morango-natural.jpg",
+    nome_arquivo: "bombom-2l.webp",
+    categoria: ["2L","Pote"],
+    nome_produto: "dlice-bombom",
+    descricao: "Sorvete sabor bombom com pedaços de chocolate. Um clássico irresistível.",
+    preco: "24.00",
+    caminho: "bombom-2l.webp",
   },
   {
-    nome_arquivo: "sorvete-baunilha-madagascar.jpg",
-    categoria: "Copo",
-    nome_produto: "dlice-baunilha-madagascar",
-    descricao: "Baunilha premium de Madagascar com notas aromáticas intensas. Clássico e sofisticado.",
-    preco: "17.90",
-    caminho: "sorvete-baunilha-madagascar.jpg",
+    nome_arquivo: "brigadeiro-2l.webp",
+    categoria: ["2L","Pote"],
+    nome_produto: "dlice-brigadeiro",
+    descricao: "Sorvete de brigadeiro com granulado e calda de chocolate.",
+    preco: "24.00",
+    caminho: "brigadeiro-2l.webp",
   },
   {
-    nome_arquivo: "cone-show-chocolate-morango.jpg",
-    categoria: "ConeShow",
-    nome_produto: "dlice-cone-show-chocolate-morango",
-    descricao: "Cone crocante recheado com sorvete de chocolate e morango, coberto com calda especial e granulado.",
-    preco: "22.90",
-    caminho: "cone-show-chocolate-morango.jpg",
+    nome_arquivo: "cone-show-brigadeiro-novo.webp",
+    categoria: ["ConeShow"],
+    nome_produto: "dlice-cone-show-brigadeiro",
+    descricao: "Cone crocante recheado com sorvete de brigadeiro e cobertura de chocolate.",
+    preco: "07.00",
+    caminho: "cone-show-brigadeiro-novo.webp",
   },
   {
-    nome_arquivo: "cone-show-cookies-cream.jpg",
-    categoria: "ConeShow",
-    nome_produto: "dlice-cone-show-cookies-cream",
-    descricao: "Delicioso cone com sorvete de cookies & cream, pedaços de biscoito e cobertura de chocolate.",
-    preco: "24.50",
-    caminho: "cone-show-cookies-cream.jpg",
+    nome_arquivo: "cone-show-crocante-novo.webp",
+    categoria: ["ConeShow"],
+    nome_produto: "dlice-cone-show-crocante",
+    descricao: "Cone crocante com sorvete de creme e cobertura de chocolate crocante.",
+    preco: "07.00",
+    caminho: "cone-show-crocante-novo.webp",
   },
   {
-    nome_arquivo: "copao-frutas-vermelhas.jpg",
-    categoria: "Copao",
-    nome_produto: "dlice-copao-frutas-vermelhas",
-    descricao: "Copão generoso com mix de frutas vermelhas: morango, framboesa e amora. Refrescante e saboroso.",
-    preco: "28.90",
-    caminho: "copao-frutas-vermelhas.jpg",
+    nome_arquivo: "copao-chocreme-novo.webp",
+    categoria: ["Copao"],
+    nome_produto: "dlice-copao-chocreme",
+    descricao: "Copão de chocolate com creme e pedaços de chocolate.",
+    preco: "07.00",
+    caminho: "copao-chocreme-novo.webp",
   },
   {
-    nome_arquivo: "copao-chocolate-nuts.jpg",
-    categoria: "Copao",
-    nome_produto: "dlice-copao-chocolate-nuts",
-    descricao: "Copão com sorvete de chocolate, castanhas, nozes e cobertura de chocolate quente.",
-    preco: "32.50",
-    caminho: "copao-chocolate-nuts.jpg",
+    nome_arquivo: "copao-napolitano-novo.webp",
+    categoria: ["Copao"],
+    nome_produto: "dlice-copao-napolitano",
+    descricao: "Copão napolitano: chocolate, morango e baunilha juntos.",
+    preco: "07.00",
+    caminho: "copao-napolitano-novo.webp",
   },
   {
-    nome_arquivo: "light-coco-zero.jpg",
-    categoria: "Light",
-    nome_produto: "dlice-light-coco-zero",
-    descricao:
-      "Sorvete de coco zero açúcar, cremoso e saboroso. Perfeito para quem cuida da saúde sem abrir mão do prazer.",
-    preco: "19.90",
-    caminho: "light-coco-zero.jpg",
+    nome_arquivo: "light-napolitano-zero.webp",
+    categoria: ["Light","Pote"],
+    nome_produto: "dlice-light-napolitano-zero",
+    descricao: "Sorvete napolitano zero açúcar, leve e saboroso.",
+    preco: "24.00",
+    caminho: "light-napolitano-zero.webp",
   },
   {
-    nome_arquivo: "light-chocolate-diet.jpg",
-    categoria: "Light",
-    nome_produto: "dlice-light-chocolate-diet",
-    descricao: "Chocolate diet com 70% menos calorias. Sabor intenso sem culpa.",
-    preco: "20.50",
-    caminho: "light-chocolate-diet.jpg",
+    nome_arquivo: "flocos-2l.webp",
+    categoria: ["2L","Pote"],
+    nome_produto: "dlice-flocos",
+    descricao: "Sorvete de flocos",
+    preco: "24.00",
+    caminho: "flocos-2l.webp",
   },
   {
-    nome_arquivo: "sundae-caramelo-especial.jpg",
-    categoria: "Sundae",
-    nome_produto: "dlice-sundae-caramelo-especial",
-    descricao: "Sundae com sorvete de baunilha, calda de caramelo artesanal, chantilly e cereja.",
-    preco: "26.90",
-    caminho: "sundae-caramelo-especial.jpg",
+    nome_arquivo: "napolitano-2l.webp",
+    categoria: ["2L","Pote"],
+    nome_produto: "dlice-napolitano",
+    descricao: "napolitano com calda de chocolate e chantilly.",
+    preco: "24.00",
+    caminho: "napolitano-2l.webp",
   },
   {
-    nome_arquivo: "sundae-chocolate-brownie.jpg",
-    categoria: "Sundae",
-    nome_produto: "dlice-sundae-chocolate-brownie",
-    descricao: "Sundae com sorvete de chocolate, pedaços de brownie, calda quente e castanhas.",
-    preco: "29.90",
-    caminho: "sundae-chocolate-brownie.jpg",
+    nome_arquivo: "frutas-tropicais-2l.webp",
+    categoria: ["2L","Pote"],
+    nome_produto: "dlice-frutas-tropicais",
+    descricao: "frutas tropicais com cobertura especial.",
+    preco: "24.00",
+    caminho: "frutas-tropicais-2l.webp",
   },
   {
-    nome_arquivo: "sorvete-pistache-siciliano.jpg",
-    categoria: "Copo",
-    nome_produto: "dlice-pistache-siciliano",
-    descricao: "Sorvete artesanal de pistache siciliano, cremoso e com sabor marcante. Edição especial.",
-    preco: "25.90",
-    caminho: "sorvete-pistache-siciliano.jpg",
+    nome_arquivo: "creme-com-passas.webp",
+    categoria: ["Copinho"],
+    nome_produto: "dlice-creme-com-passas",
+    descricao: "Sorvete de creme com passas.",
+    preco: "4.50",
+    caminho: "creme-com-passas.webp",
   },
-]
+  {
+    nome_arquivo: "bombom-novo.webp",
+    categoria: ["Copinho"],
+    nome_produto: "dlice-bombom",
+    descricao: "Sorvete sabor bombom com pedaços de chocolate.",
+    preco: "4.50",
+    caminho: "bombom-novo.webp",
+  },
+  {
+    nome_arquivo: "napolitano-classico.webp",
+    categoria: ["Copinho"],
+    nome_produto: "dlice-napolitano-classico",
+    descricao: "Sorvete napolitano clássico com camadas de chocolate, morango e baunilha.",
+    preco: "4.50",
+    caminho: "napolitano-classico.webp",
+  },
+  {
+    nome_arquivo: "pote-acai.webp",
+    categoria: ["Açai","Pote"],
+    nome_produto: "pote-acai",
+    descricao: "Pote de açaí.",
+    preco: "28.00",
+    caminho: "sorvete-mareni-acai.webp",
+  },
+  {
+    nome_arquivo: "pote-creme-com-passas.webp",
+    categoria: ["Pote"],
+    nome_produto: "creme-com-passas",
+    descricao: "Pote de creme com passas.",
+    preco: "24.00",
+    caminho: "creme-passas-2l.webp",
+  },
+  {
+    nome_arquivo: "pote-nata-goiaba.webp",
+    categoria: ["Pote"],
+    nome_produto: "nata-goiaba",
+    descricao: "nata com goiaba.",
+    preco: "24.00",
+    caminho: "nata-goiaba-2l.webp",
+  },
+  {
+    nome_arquivo: "pote-pave.webp",
+    categoria: ["Pote"],
+    nome_produto: "pote-pave",
+    descricao: "pavê.",
+    preco: "24.00",
+    caminho: "pave-2l.webp",
+  },
+  {
+    nome_arquivo: "pote-premium-iogurte-morango.webp",
+    categoria: ["Pote","Premium"],
+    nome_produto: "premium-iogurte-morango",
+    descricao: "Pote de iogurte com morango.",
+    preco: "26.00",
+    caminho: "pote-premium-iogurte-morango.webp",
+  },
+  {
+    nome_arquivo: "pote-premium-ninho-trufado.webp",
+    categoria: ["Pote","Premium"],
+    nome_produto: "premium-ninho-trufado",
+    descricao: "Pote de ninho trufado.",
+    preco: "26.00",
+    caminho: "pote-premium-ninho-trufado.webp",
+  },
+  {
+    nome_arquivo: "pote-toffee.webp",
+    categoria: ["Pote"],
+    nome_produto: "toffee",
+    descricao: "Toffee.",
+    preco: "24.00",
+    caminho: "toffee-2l.webp",
+  },
+  {
+    nome_arquivo: "sundae-chocolate.webp",
+    categoria: ["Sundae"],
+    nome_produto: "dlice-sundae-chocolate",
+    descricao: "Sundae de chocolate com cobertura de chocolate.",
+    preco: "6.00",
+    caminho: "sundae-chocolate.webp",
+  },
+  {
+    nome_arquivo: "sundae-morango.webp",
+    categoria: ["Sundae"],
+    nome_produto: "dlice-sundae-morango",
+    descricao: "Sundae de morango com cobertura de morango.",
+    preco: "6.00",
+    caminho: "sundae-morango.webp",
+  },
 
+
+  // PICOLÉS
+  {
+    nome_arquivo: "picole-abacaxi.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-abacaxi",
+    descricao: "Picolé sabor abacaxi, refrescante e natural.",
+    preco: "3.00",
+    caminho: "picole-abacaxi.webp",
+  },
+  {
+    nome_arquivo: "picole-caja.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-caja",
+    descricao: "Picolé sabor cajá, perfeito para dias quentes.",
+    preco: "3.00",
+    caminho: "picole-caja.webp",
+  },
+  {
+    nome_arquivo: "picole-goiaba.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-goiaba",
+    descricao: "Picolé sabor goiaba, doce na medida certa.",
+    preco: "3.00",
+    caminho: "picole-goiaba.webp",
+  },
+  {
+    nome_arquivo: "picole-graviola.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-graviola",
+    descricao: "Picolé sabor graviola, cremoso e tropical.",
+    preco: "3.00",
+    caminho: "picole-graviola.webp",
+  },
+  {
+    nome_arquivo: "picole-limao.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-limao",
+    descricao: "Picolé sabor limão, refrescância garantida.",
+    preco: "3.00",
+    caminho: "picole-limao.webp",
+  },
+  {
+    nome_arquivo: "picole-acai.webp",
+    categoria: ["Picole","Açai"],
+    nome_produto: "picole-acai",
+    descricao: "Picolé sabor açai",
+    preco: "4.00",
+    caminho: "picole-acai.webp",
+  },
+  {
+    nome_arquivo: "picole-amendoim.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-amêndoas",
+    descricao: "Picolé sabor amêndoas.",
+    preco: "7.00",
+    caminho: "picole-amendoim.webp",
+  },
+  {
+    nome_arquivo: "picole-brigadeiro.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-brigadeiro",
+    descricao: "Picolé sabor brigadeiro.",
+    preco: "6.00",
+    caminho: "picole-brigadeiro.webp",
+  },
+  {
+    nome_arquivo: "picole-chocolate-branco.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-chocolate-branco",
+    descricao: "Picolé sabor chocolate branco.",
+    preco: "3.00",
+    caminho: "picole-chocolate-branco.webp",
+  },
+  {
+    nome_arquivo: "picole-classico.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-classico",
+    descricao: "Picolé sabor clássico.",
+    preco: "7.00",
+    caminho: "picole-classico.webp",
+  },
+  {
+    nome_arquivo: "picole-flocante.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-flocante",
+    descricao: "Picolé sabor flocante.",
+    preco: "3.00",
+    caminho: "picole-flocante.webp",
+  },
+  {
+    nome_arquivo: "picole-iogurte-grego.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-iogurte-grego",
+    descricao: "Picolé sabor iogurte grego.",
+    preco: "5.00",
+    caminho: "picole-iogurte-grego.webp",
+  },
+  {
+    nome_arquivo: "picole-leitinho-trufado.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-leitinho-trufado",
+    descricao: "Picolé sabor leitinho trufado.",
+    preco: "5.00",
+    caminho: "picole-leitinho-trufado.webp",
+  },
+  {
+    nome_arquivo: "picole-tablete.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-tablete",
+    descricao: "Picolé sabor tablete, uma combinação perfeita de chocolate e crocância.",
+    preco: "6.00",
+    caminho: "picole-tablete.webp",
+  },
+  {
+    nome_arquivo: "picole-trufa-chocolate.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-trufa-chocolate",
+    descricao: "Picolé sabor trufa de chocolate, uma explosão de sabor.",
+    preco: "5.00",
+    caminho: "picole-trufa-chocolate.webp",
+  },
+  {
+    nome_arquivo: "picole-trufa-morango.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-trufa-morango",
+    descricao: "Picolé sabor trufa de morango, uma explosão de sabor.",
+    preco: "5.00",
+    caminho: "picole-trufa-morango.webp",
+  },
+  {
+    nome_arquivo: "picole-morango.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-morango",
+    descricao: "Picolé sabor morango, uma explosão de sabor.",
+    preco: "3.00",
+    caminho: "morango.webp",
+  },
+  {
+    nome_arquivo: "picole-chocolate.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-chocolate",
+    descricao: "Picolé sabor chocolate.",
+    preco: "3.00",
+    caminho: "chocolate.webp",
+  },
+  {
+    nome_arquivo: "picole-coco.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-coco",
+    descricao: "Picolé sabor coco.",
+    preco: "3.00",
+    caminho: "coco.webp",
+  },
+  {
+    nome_arquivo: "picole-napolitano.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-napolitano",
+    descricao: "Picolé sabor Napolitano, uma combinação clássica.",
+    preco: "3.00",
+    caminho: "napolitano.webp",
+  },
+  {
+    nome_arquivo: "picole-tapioca.webp",
+    categoria: ["Picole"],
+    nome_produto: "picole-tapioca",
+    descricao: "Picolé sabor tapioca, uma delícia nordestina.",
+    preco: "3.50",
+    caminho: "tapioca.webp",
+  }
+]
 // Mock de produtos para exibição - adicionar após os produtos existentes
 const newComboProducts: Product[] = [
   {
-    nome_arquivo: "combo-coneshow.jpeg",
-    categoria: "Combos",
+    nome_arquivo: "combo-coneshow.webp",
+    categoria: ["Combos"],
     nome_produto: "dlice-combo-cone-show",
     descricao:
       "Combo especial com 6 unidades de Cone Show. Sorvetes cremosos de chocolate e baunilha em cones crocantes. Perfeito para compartilhar!",
     preco: "39.99",
-    caminho: "combo-coneshow.jpeg",
+    caminho: "combo-coneshow.webp",
   },
   {
-    nome_arquivo: "combo-familia.jpeg",
-    categoria: "Combos",
+    nome_arquivo: "combo-familia.webp",
+    categoria: ["Combos"],
     nome_produto: "dlice-combo-familia",
     descricao:
-      "Combo Família com sorvetes Pavê + cone. Sabores: bombom, brigadeiro, creme com passas, nata goiaba, frutas tropicais, flocos, baunilha com causas de frutas vermelhas, napolitano, pavê e toffee.",
+      "Combo Família com sorvetes Pavê + cone. Sabores: bombom, brigadeiro, creme com passas, nata goiaba, frutas tropicais, flocos, baunilha com calda de frutas vermelhas, napolitano, pavê e toffee.",
     preco: "30.00",
-    caminho: "combo-familia.jpeg",
+    caminho: "combo-familia.webp",
   },
   {
-    nome_arquivo: "combo-premium.jpeg",
-    categoria: "Combos",
+    nome_arquivo: "combo-premium.webp",
+    categoria: ["Combos"],
     nome_produto: "dlice-combo-premium",
     descricao:
       "Combo Premium com sorvete Ninho Trufado + 10 cones especiais. Uma experiência premium e deliciosa para toda família.",
     preco: "32.00",
-    caminho: "combo-premium.jpeg",
+    caminho: "combo-premium.webp",
   },
   {
-    nome_arquivo: "kit-aniversario.jpeg",
-    categoria: "Kits",
+    nome_arquivo: "kit-aniversario.webp",
+    categoria: ["Kits"],
     nome_produto: "dlice-kit-aniversario",
     descricao:
       "Kit Aniversário completo! Inclui sorvete Napolitano 10L + cobertura de morango + 40 cones. Combinação perfeita para festas e celebrações especiais.",
     preco: "180.00",
-    caminho: "kit-aniversario.jpeg",
+    caminho: "kit-aniversario.webp",
   },
   {
-    nome_arquivo: "combo-picole-frutas.jpeg",
-    categoria: "Picolés",
+    nome_arquivo: "combo-picole-frutas.webp",
+    categoria: ["Combos"],
     nome_produto: "dlice-combo-picole-frutas",
     descricao:
       "Combo Picolé Frutas com 7 unidades. Sabores tropicais: Cajá, Abacaxi, Goiaba, Graviola e Limão. Refrescante e natural!",
     preco: "20.00",
-    caminho: "combo-picole-frutas.jpeg",
+    caminho: "combo-picole-frutas.webp",
   },
   {
-    nome_arquivo: "combo-sunday.jpeg",
-    categoria: "Combos",
+    nome_arquivo: "combo-sunday.webp",
+    categoria: ["Combos"],
     nome_produto: "dlice-combo-sunday",
     descricao:
       "Combo Sunday especial com 6 unidades. Sabores chocolate e morango com coberturas especiais. Ideal para o fim de semana!",
     preco: "35.00",
-    caminho: "combo-sunday.jpeg",
+    caminho: "combo-sunday.webp",
   },
 ]
 
 // Função para gerar dados padrão para produtos
 const generateProductDefaults = (product: Product, index: number): ProductWithDefaults => {
-  const basePrice = 15 + Math.random() * 20 // Preço entre 15 e 35
-  const discount = Math.random() > 0.6 ? 1.2 : 1 // 40% chance de desconto
+  const price = parseFloat(product.preco.replace(",", "."))
+  const originalPrice = price // Não padroniza, usa o preço do mock
 
   return {
     ...product,
     id: index + 1,
-    price: Math.round(basePrice * 100) / 100,
-    originalPrice: Math.round(basePrice * discount * 100) / 100,
-    rating: 4.5 + Math.random() * 0.5, // Rating entre 4.5 e 5.0
-    reviews: Math.floor(Math.random() * 200) + 50, // Reviews entre 50 e 250
-    isNew: Math.random() > 0.7, // 30% chance de ser novo
-    isBestSeller: Math.random() > 0.8, // 20% chance de ser mais vendido
+    price,
+    originalPrice,
+    rating: 4.8, // Valor fixo para todos
+    reviews: 120, // Valor fixo para todos
+    isNew: false,
+    isBestSeller: false,
     descricao:
       product.descricao ||
       `Delicioso sorvete ${product.nome_produto.toLowerCase().replace(/-/g, " ")} feito com ingredientes premium selecionados.`,
@@ -235,16 +490,21 @@ const formatProductName = (name: string) => {
 }
 
 // Função para formatar nome da categoria
-const formatCategoryName = (category: string) => {
+const formatCategoryName = (category: string | string[]) => {
   const categoryNames: { [key: string]: string } = {
     ConeShow: "Cone Show",
     Copao: "Copão",
-    Copo: "Copo",
+    Copinho: "Copinho",
     Light: "Light",
     Sundae: "Sundae",
     Combos: "Combos",
     Kits: "Kits",
+    Picole: "Picolés",
     Picolés: "Picolés",
+    Açai: "Açaí",
+  }
+  if (Array.isArray(category)) {
+    return category.map((cat) => categoryNames[cat] || cat).join(", ")
   }
   return categoryNames[category] || category
 }
@@ -277,41 +537,25 @@ export default function DliceEcommerce() {
     setImageErrors((prev) => ({ ...prev, [productId]: true }))
   }
 
-  // Carregar produtos do JSON
+  // Carregar produtos do mock (remover chamada ao JSON)
   useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        const response = await fetch("/data/catalogo_sorvetes_mareni.json")
-        let data: Product[] = []
+    // Junta os mocks principais e os combos/kits
+    const allProducts = [...mockProducts, ...newComboProducts]
+    const productsWithDefaults = allProducts.map((product, index) => generateProductDefaults(product, index))
+    setProducts(productsWithDefaults)
 
-        if (response.ok) {
-          data = await response.json()
-        } else {
-          console.warn("JSON não encontrado, usando produtos mock")
-          data = mockProducts
-        }
+    // Coleta todas as categorias únicas de todos os produtos (agora array)
+    const uniqueCategories = [
+      "Todos",
+      ...Array.from(
+        new Set(
+          allProducts.flatMap((p) => p.categoria)
+        )
+      ),
+    ]
+    setCategories(uniqueCategories)
 
-        const productsWithDefaults = data.map((product, index) => generateProductDefaults(product, index))
-        setProducts(productsWithDefaults)
-
-        const uniqueCategories = ["Todos", ...Array.from(new Set(data.map((p) => p.categoria)))]
-        setCategories(uniqueCategories)
-
-        setLoading(false)
-      } catch (error) {
-        console.error("Erro ao carregar produtos, usando mock:", error)
-        // Em caso de erro, usar produtos mock
-        const productsWithDefaults = mockProducts.map((product, index) => generateProductDefaults(product, index))
-        setProducts(productsWithDefaults)
-
-        const uniqueCategories = ["Todos", ...Array.from(new Set(mockProducts.map((p) => p.categoria)))]
-        setCategories(uniqueCategories)
-
-        setLoading(false)
-      }
-    }
-
-    loadProducts()
+    setLoading(false)
   }, [])
 
   useEffect(() => {
@@ -319,22 +563,20 @@ export default function DliceEcommerce() {
   }, [getTotalItems])
 
   const filteredProducts = products.filter((product) => {
-    const matchesCategory = selectedCategory === "Todos" || product.categoria === selectedCategory
+    const matchesCategory =
+      selectedCategory === "Todos" ||
+      product.categoria.includes(selectedCategory)
     const matchesSearch = formatProductName(product.nome_produto).toLowerCase().includes(searchTerm.toLowerCase())
     return matchesCategory && matchesSearch
   })
 
-  // Agrupar produtos por categoria
-  const groupedProducts = products.reduce(
-    (acc, product) => {
-      if (!acc[product.categoria]) {
-        acc[product.categoria] = []
-      }
-      acc[product.categoria].push(product)
+  // Agrupar produtos por categoria (agora array)
+  const groupedProducts = categories
+    .filter((cat) => cat !== "Todos")
+    .reduce((acc, category) => {
+      acc[category] = products.filter((product) => product.categoria.includes(category))
       return acc
-    },
-    {} as { [key: string]: ProductWithDefaults[] },
-  )
+    }, {} as { [key: string]: ProductWithDefaults[] })
 
   const handleAddToCart = (product: ProductWithDefaults) => {
     addToCart(product)
@@ -375,16 +617,16 @@ Gostaria de confirmar este pedido! 😋`
     window.open(whatsappUrl, "_blank")
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Carregando produtos deliciosos...</p>
-        </div>
-      </div>
-    )
-  }
+  // if (loading) {
+  //   return (
+  //     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50 flex items-center justify-center">
+  //       <div className="text-center">
+  //         <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+  //         <p className="text-gray-600 text-lg">Carregando produtos deliciosos...</p>
+  //       </div>
+  //     </div>
+  //   )
+  // }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50">
@@ -416,7 +658,7 @@ Gostaria de confirmar este pedido! 😋`
             >
               <div className="relative">
                 <Image
-                  src="/images/dlice-logo.png"
+                  src="/images/dlice-logo.webp"
                   alt="D'lice Sorvetes"
                   width={120}
                   height={60}
