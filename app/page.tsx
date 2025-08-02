@@ -38,8 +38,8 @@ interface ProductWithDefaults extends Product {
   id: number
   price: number
   originalPrice: number
-  rating: number
-  reviews: number
+  // rating: number
+  // reviews: number
   isNew: boolean
   isBestSeller: boolean
 }
@@ -122,7 +122,7 @@ const mockProducts: Product[] = [
     nome_arquivo: "napolitano-2l.webp",
     categoria: ["2L","Pote"],
     nome_produto: "dlice-napolitano",
-    descricao: "napolitano com calda de chocolate e chantilly.",
+    descricao: "Soverte sabor napolitano.",
     preco: "24.00",
     caminho: "napolitano-2l.webp",
   },
@@ -178,7 +178,7 @@ const mockProducts: Product[] = [
     nome_arquivo: "pote-nata-goiaba.webp",
     categoria: ["Pote"],
     nome_produto: "nata-goiaba",
-    descricao: "nata com goiaba.",
+    descricao: "Soverte 2L de sabor nata com goiaba.",
     preco: "24.00",
     caminho: "nata-goiaba-2l.webp",
   },
@@ -186,7 +186,7 @@ const mockProducts: Product[] = [
     nome_arquivo: "pote-pave.webp",
     categoria: ["Pote"],
     nome_produto: "pote-pave",
-    descricao: "pavê.",
+    descricao: "Soverte 2L de sabor pavê.",
     preco: "24.00",
     caminho: "pave-2l.webp",
   },
@@ -210,7 +210,7 @@ const mockProducts: Product[] = [
     nome_arquivo: "pote-toffee.webp",
     categoria: ["Pote"],
     nome_produto: "toffee",
-    descricao: "Toffee.",
+    descricao: "soverte de sabor Toffee.",
     preco: "24.00",
     caminho: "toffee-2l.webp",
   },
@@ -470,8 +470,8 @@ const generateProductDefaults = (product: Product, index: number): ProductWithDe
     id: index + 1,
     price,
     originalPrice,
-    rating: 4.8, // Valor fixo para todos
-    reviews: 120, // Valor fixo para todos
+    // rating: 4.8, // Valor fixo para todos
+     // Valor fixo para todos
     isNew: false,
     isBestSeller: false,
     descricao:
@@ -617,16 +617,16 @@ Gostaria de confirmar este pedido! 😋`
     window.open(whatsappUrl, "_blank")
   }
 
-  // if (loading) {
-  //   return (
-  //     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50 flex items-center justify-center">
-  //       <div className="text-center">
-  //         <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-  //         <p className="text-gray-600 text-lg">Carregando produtos deliciosos...</p>
-  //       </div>
-  //     </div>
-  //   )
-  // }
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Carregando produtos deliciosos...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50">
@@ -991,7 +991,7 @@ Gostaria de confirmar este pedido! 😋`
                         <div className="flex justify-between text-gray-600">
                           <span>Entrega:</span>
                           <span className="text-green-600 font-semibold">
-                            {getTotalPrice() >= 50 ? "Grátis" : "R$ 8,90"}
+                            Combinar com Vendedor
                           </span>
                         </div>
                       </div>
@@ -1296,8 +1296,8 @@ function ProductCard({
             </Badge>
             <div className="flex items-center space-x-1">
               <Star className="w-4 h-4 text-yellow-400 fill-current" />
-              <span className="text-sm font-medium text-gray-600">{product.rating.toFixed(1)}</span>
-              <span className="text-xs text-gray-400">({product.reviews})</span>
+              {/* <span className="text-sm font-medium text-gray-600">{product.rating.toFixed(1)}</span> */}
+              {/* <span className="text-xs text-gray-400">({product.reviews})</span> */}
             </div>
           </div>
 
@@ -1314,7 +1314,7 @@ function ProductCard({
                   <span className="text-sm text-gray-400 line-through">R$ {product.originalPrice.toFixed(2)}</span>
                 )}
               </div>
-              <span className="text-xs text-gray-500">ou 3x sem juros</span>
+             
             </div>
 
             <motion.button
@@ -1324,8 +1324,9 @@ function ProductCard({
               onClick={() => onAddToCart(product)}
               className="bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 hover:from-pink-600 hover:via-rose-600 hover:to-pink-700 text-white px-6 py-3 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl flex items-center space-x-2 font-semibold"
             >
-              <Plus className="w-4 h-4" />
-              <span>Adicionar</span>
+              <Plus className="w-4 h-4 max-sm:hidden" />
+              <ShoppingCart className="w-4 h-4 sm:hidden" />
+              <span className="max-sm:hidden">Adicionar</span>
             </motion.button>
           </div>
         </CardContent>
