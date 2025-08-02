@@ -509,6 +509,62 @@ const formatCategoryName = (category: string | string[]) => {
   return categoryNames[category] || category
 }
 
+// Mapeamento dos bairros e suas taxas
+const bairrosTaxas: { [bairro: string]: number } = {
+  "ANTÔNIO HOLANDA": 6,
+  "ARRAIAL": 6,
+  "ARRAIAL DA LAMBADA": 6,
+  "ARRAIAL DE BAIXO": 6,
+  "BOA FÉ": 4,
+  "BOM FIM": 5,
+  "BOM JESUS": 3,
+  "BOM JESUS DO CRUZEIRO": 10,
+  "BOM NOME": 4,
+  "BROTALÂNDIA": 3,
+  "CANAFISTULA": 4,
+  "CENTRO": 3,
+  "CIDADE ALTA": 6,
+  "CJ FLORES": 4,
+  "CJ HABITAR BRASIL": 3,
+  "CÓRREGO DE AREIA": 6,
+  "DR JOSÉ SIMOES": 3,
+  "JOÃO XXIII": 2,
+  "LIMOEIRINHO": 5,
+  "LIMOEIRO ALTO": 5,
+  "LUIZ ALVES": 3,
+  "MILAGRES": 5,
+  "MONSENHOR OTÁVIO": 3,
+  "MORROS": 4,
+  "PITOMBEIRA": 3,
+  "POPULARES": 3,
+  "QUIXABA": 5,
+  "SANTA LUZIA": 3,
+  "SÃO RAIMUNDO": 5,
+  "SÍTIO ILHAS": 2,
+  "SOBRADO": 3,
+  "SOCORRO": 4,
+  "TRIÂNGULO": 8,
+  "VÁRZEA DO COBRA": 5,
+  "VILA TETEU": 3,
+  "EUCALIPTOS": 3,
+}
+
+// Função para buscar taxa pelo bairro digitado (case insensitive e ignora acentos)
+function getTaxaEntrega(bairro: string) {
+  if (!bairro) return 0
+  // Remove acentos e deixa maiúsculo
+  const normalize = (str: string) =>
+    str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim()
+  const bairroNormalizado = normalize(bairro)
+  // Procura por chave igual (ignora acentos)
+  for (const nome in bairrosTaxas) {
+    if (normalize(nome) === bairroNormalizado) {
+      return bairrosTaxas[nome]
+    }
+  }
+  return 0
+}
+
 export default function DliceEcommerce() {
   const { cart, addToCart, removeFromCart, updateQuantity, getTotalPrice, getTotalItems } = useCart()
   const [isCartOpen, setIsCartOpen] = useState(false)
@@ -527,6 +583,7 @@ export default function DliceEcommerce() {
     complement: "",
     neighborhood: "",
     city: "",
+    paymentMethod: "", // Novo campo para forma de pagamento
   })
 
   // Adicionar estado para controlar erros de imagem no início do componente principal
@@ -595,10 +652,13 @@ export default function DliceEcommerce() {
   }
 
   const generateWhatsAppMessage = () => {
+    const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
+    const totalComFrete = getTotalPrice() + taxaEntrega
+
     const items = cart
       .map(
         (item) =>
-          `• ${formatProductName(item.nome_produto)} (${item.quantity}x) - R$ ${(item.price * item.quantity).toFixed(2)}`,
+          `• ${formatProductName(item.nome_produto)} (${item.categoria}) (${item.quantity}x) - R$ ${(item.price * item.quantity).toFixed(2)}`,
       )
       .join("\n")
 
@@ -607,7 +667,9 @@ export default function DliceEcommerce() {
 *Produtos Selecionados:*
 ${items}
 
-*Valor Total: R$ ${getTotalPrice().toFixed(2)}*
+*Subtotal: R$ ${getTotalPrice().toFixed(2)}*
+*Entrega: ${taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}*
+*Valor Total: R$ ${totalComFrete.toFixed(2)}*
 
 *Dados para Entrega:*
 👤 Nome: ${deliveryInfo.name}
@@ -616,6 +678,7 @@ ${items}
 ${deliveryInfo.complement ? `📍 Complemento: ${deliveryInfo.complement}` : ""}
 🏘️ Bairro: ${deliveryInfo.neighborhood}
 🏙️ Cidade: ${deliveryInfo.city}
+💳 Forma de Pagamento: ${deliveryInfo.paymentMethod || "Não informado"}
 
 Gostaria de confirmar este pedido! 😋`
 
@@ -987,26 +1050,41 @@ Gostaria de confirmar este pedido! 😋`
                       ))}
                     </div>
 
-                    <div className="border-t border-orange-100 pt-6 mb-6">
-                      <div className="space-y-2 mb-4">
-                        <div className="flex justify-between text-gray-600">
-                          <span>Subtotal:</span>
-                          <span>R$ {getTotalPrice().toFixed(2)}</span>
+                    {/* Defina taxaEntrega e totalComFrete antes de usar */}
+                    {(() => {
+                      const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood);
+                      const totalComFrete = getTotalPrice() + taxaEntrega;
+                      return (
+                        <div className="border-t border-orange-100 pt-6 mb-6">
+                          <div className="space-y-2 mb-4">
+                            <div className="flex justify-between text-gray-600">
+                              <span>Subtotal:</span>
+                              <span>R$ {getTotalPrice().toFixed(2)}</span>
+                            </div>
+                            {(() => {
+                              const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood);
+                              return (
+                                <div className="flex justify-between text-gray-600">
+                                  <span>Entrega:</span>
+                                  <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
+                                    {(() => {
+                                      const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood);
+                                      return taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor";
+                                    })()}
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          <div className="flex justify-between items-center text-2xl font-bold border-t border-orange-100 pt-4">
+                            <span>Total:</span>
+                            <span className="text-pink-600">
+                              R$ {totalComFrete.toFixed(2)}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex justify-between text-gray-600">
-                          <span>Entrega:</span>
-                          <span className="text-green-600 font-semibold">
-                            Combinar com Vendedor
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center text-2xl font-bold border-t border-orange-100 pt-4">
-                        <span>Total:</span>
-                        <span className="text-pink-600">
-                          R$ {(getTotalPrice()).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
+                      );
+                    })()}
 
                     <Button
                       onClick={() => {
@@ -1142,6 +1220,25 @@ Gostaria de confirmar este pedido! 😋`
                           className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
                         />
                       </div>
+
+                      <div>
+                        <Label htmlFor="paymentMethod" className="text-sm font-semibold text-gray-700">
+                          Forma de Pagamento
+                        </Label>
+                        <select
+                          id="paymentMethod"
+                          value={deliveryInfo.paymentMethod}
+                          onChange={(e) => setDeliveryInfo({ ...deliveryInfo, paymentMethod: e.target.value })}
+                          className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300 w-full bg-white"
+                          required
+                        >
+                          <option value="">Selecione</option>
+                          <option value="Pix">Pix</option>
+                          <option value="Dinheiro">Dinheiro</option>
+                          <option value="Cartão(Débito)">Cartão (Débito)</option>
+                          <option value="Cartão(Crédito)">Cartão (Crédito)</option>
+                        </select>
+                      </div>
                     </div>
 
                     {/* Resumo do pedido */}
@@ -1191,18 +1288,29 @@ Gostaria de confirmar este pedido! 😋`
                         </div>
                         <div className="flex justify-between text-gray-600">
                           <span>Entrega:</span>
-                          <span className={getTotalPrice() >= 50 ? "text-green-600 font-semibold" : ""}>
-                            Combinar com Vendedor
-                          </span>
+                          {(() => {
+                            const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood);
+                            return (
+                              <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
+                                {taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}
+                              </span>
+                            );
+                          })()}
                         </div>
-                        <div className="border-t border-gray-200 pt-3">
-                          <div className="flex justify-between text-xl font-bold text-gray-800">
-                            <span>Total:</span>
-                            <span className="text-pink-600">
-                              R$ {(getTotalPrice()).toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
+                        {(() => {
+                          const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood);
+                          const totalComFrete = getTotalPrice() + taxaEntrega;
+                          return (
+                            <div className="border-t border-gray-200 pt-3">
+                              <div className="flex justify-between text-xl font-bold text-gray-800">
+                                <span>Total:</span>
+                                <span className="text-pink-600">
+                                  R$ {totalComFrete.toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       <Button
