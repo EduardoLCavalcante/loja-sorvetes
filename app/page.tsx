@@ -1003,7 +1003,7 @@ Gostaria de confirmar este pedido! 😋`
                       <div className="flex justify-between items-center text-2xl font-bold border-t border-orange-100 pt-4">
                         <span>Total:</span>
                         <span className="text-pink-600">
-                          R$ {(getTotalPrice() + (getTotalPrice() >= 50 ? 0 : 8.9)).toFixed(2)}
+                          R$ {(getTotalPrice()).toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -1192,14 +1192,14 @@ Gostaria de confirmar este pedido! 😋`
                         <div className="flex justify-between text-gray-600">
                           <span>Entrega:</span>
                           <span className={getTotalPrice() >= 50 ? "text-green-600 font-semibold" : ""}>
-                            {getTotalPrice() >= 50 ? "Grátis" : "R$ 8,90"}
+                            Combinar com Vendedor
                           </span>
                         </div>
                         <div className="border-t border-gray-200 pt-3">
                           <div className="flex justify-between text-xl font-bold text-gray-800">
                             <span>Total:</span>
                             <span className="text-pink-600">
-                              R$ {(getTotalPrice() + (getTotalPrice() >= 50 ? 0 : 8.9)).toFixed(2)}
+                              R$ {(getTotalPrice()).toFixed(2)}
                             </span>
                           </div>
                         </div>
