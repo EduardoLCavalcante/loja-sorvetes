@@ -48,7 +48,7 @@ interface ProductWithDefaults extends Product {
 const mockProducts: Product[] = [
   {
     nome_arquivo: "baunilha-frutas-vermelhas-2l.webp",
-    categoria: ["2L","Pote"],
+    categoria: ["Pote 2L"],
     nome_produto: "dlice-baunilha-frutas-vermelhas",
     descricao: "Sorvete de baunilha com calda de frutas vermelhas. Cremoso e refrescante.",
     preco: "24.00",
@@ -56,7 +56,7 @@ const mockProducts: Product[] = [
   },
   {
     nome_arquivo: "bombom-2l.webp",
-    categoria: ["2L","Pote"],
+    categoria: ["Pote 2L"],
     nome_produto: "dlice-bombom",
     descricao: "Sorvete sabor bombom com pedaços de chocolate. Um clássico irresistível.",
     preco: "24.00",
@@ -64,7 +64,7 @@ const mockProducts: Product[] = [
   },
   {
     nome_arquivo: "brigadeiro-2l.webp",
-    categoria: ["2L","Pote"],
+    categoria: ["Pote 2L"],
     nome_produto: "dlice-brigadeiro",
     descricao: "Sorvete de brigadeiro com granulado e calda de chocolate.",
     preco: "24.00",
@@ -104,7 +104,7 @@ const mockProducts: Product[] = [
   },
   {
     nome_arquivo: "light-napolitano-zero.webp",
-    categoria: ["Light","Pote"],
+    categoria: ["Light"],
     nome_produto: "dlice-light-napolitano-zero",
     descricao: "Sorvete napolitano zero açúcar, leve e saboroso.",
     preco: "24.00",
@@ -112,7 +112,7 @@ const mockProducts: Product[] = [
   },
   {
     nome_arquivo: "flocos-2l.webp",
-    categoria: ["2L","Pote"],
+    categoria: ["Pote 2L"],
     nome_produto: "dlice-flocos",
     descricao: "Sorvete de flocos",
     preco: "24.00",
@@ -120,7 +120,7 @@ const mockProducts: Product[] = [
   },
   {
     nome_arquivo: "napolitano-2l.webp",
-    categoria: ["2L","Pote"],
+    categoria: ["Pote 2L"],
     nome_produto: "dlice-napolitano",
     descricao: "Soverte sabor napolitano.",
     preco: "24.00",
@@ -128,7 +128,7 @@ const mockProducts: Product[] = [
   },
   {
     nome_arquivo: "frutas-tropicais-2l.webp",
-    categoria: ["2L","Pote"],
+    categoria: ["Pote 2L"],
     nome_produto: "dlice-frutas-tropicais",
     descricao: "frutas tropicais com cobertura especial.",
     preco: "24.00",
@@ -160,7 +160,7 @@ const mockProducts: Product[] = [
   },
   {
     nome_arquivo: "pote-acai.webp",
-    categoria: ["Açai","Pote"],
+    categoria: ["Açai"],
     nome_produto: "pote-acai",
     descricao: "Pote de açaí.",
     preco: "28.00",
@@ -168,7 +168,7 @@ const mockProducts: Product[] = [
   },
   {
     nome_arquivo: "pote-creme-com-passas.webp",
-    categoria: ["Pote"],
+    categoria: ["Pote 2L"],
     nome_produto: "creme-com-passas",
     descricao: "Pote de creme com passas.",
     preco: "24.00",
@@ -176,7 +176,7 @@ const mockProducts: Product[] = [
   },
   {
     nome_arquivo: "pote-nata-goiaba.webp",
-    categoria: ["Pote"],
+    categoria: ["Pote 2L"],
     nome_produto: "nata-goiaba",
     descricao: "Soverte 2L de sabor nata com goiaba.",
     preco: "24.00",
@@ -184,7 +184,7 @@ const mockProducts: Product[] = [
   },
   {
     nome_arquivo: "pote-pave.webp",
-    categoria: ["Pote"],
+    categoria: ["Pote 2L"],
     nome_produto: "pote-pave",
     descricao: "Soverte 2L de sabor pavê.",
     preco: "24.00",
@@ -192,7 +192,7 @@ const mockProducts: Product[] = [
   },
   {
     nome_arquivo: "pote-premium-iogurte-morango.webp",
-    categoria: ["Pote","Premium"],
+    categoria: ["Premium"],
     nome_produto: "premium-iogurte-morango",
     descricao: "Pote de iogurte com morango.",
     preco: "26.00",
@@ -200,7 +200,7 @@ const mockProducts: Product[] = [
   },
   {
     nome_arquivo: "pote-premium-ninho-trufado.webp",
-    categoria: ["Pote","Premium"],
+    categoria: ["Premium"],
     nome_produto: "premium-ninho-trufado",
     descricao: "Pote de ninho trufado.",
     preco: "26.00",
@@ -208,7 +208,7 @@ const mockProducts: Product[] = [
   },
   {
     nome_arquivo: "pote-toffee.webp",
-    categoria: ["Pote"],
+    categoria: ["Pote 2L"],
     nome_produto: "toffee",
     descricao: "soverte de sabor Toffee.",
     preco: "24.00",
@@ -564,17 +564,24 @@ export default function DliceEcommerce() {
 
   const filteredProducts = products.filter((product) => {
     const matchesCategory =
-      selectedCategory === "Todos" ||
+      selectedCategory === "" ||
       product.categoria.includes(selectedCategory)
     const matchesSearch = formatProductName(product.nome_produto).toLowerCase().includes(searchTerm.toLowerCase())
     return matchesCategory && matchesSearch
   })
 
-  // Agrupar produtos por categoria (agora array)
+  // Agrupar produtos por categoria, mostrando só categorias com produtos que batem com a busca
   const groupedProducts = categories
     .filter((cat) => cat !== "Todos")
     .reduce((acc, category) => {
-      acc[category] = products.filter((product) => product.categoria.includes(category))
+      const filtered = products
+        .filter((product) => product.categoria.includes(category))
+        .filter((product) =>
+          formatProductName(product.nome_produto).toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      if (filtered.length > 0) {
+        acc[category] = filtered
+      }
       return acc
     }, {} as { [key: string]: ProductWithDefaults[] })
 
@@ -638,7 +645,7 @@ Gostaria de confirmar este pedido! 😋`
             <div className="flex items-center space-x-4">
               <div className="hidden md:flex items-center space-x-1">
                 <Clock className="w-4 h-4 text-pink-500" />
-                <span>Entrega em até 2h</span>
+                <span>Entrega em até 40 min</span>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -668,7 +675,7 @@ Gostaria de confirmar este pedido! 😋`
             </motion.div>
 
             {/* Search Bar - Desktop */}
-            <div className="hidden md:flex flex-1 max-w-md mx-8">
+            <div className="text-[8px] md:flex flex-1 max-w-md mx-8">
               <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <Input
@@ -682,9 +689,7 @@ Gostaria de confirmar este pedido! 😋`
 
             {/* Header Actions */}
             <div className="flex items-center space-x-3">
-              <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsMobileMenuOpen(true)}>
-                <Menu className="w-6 h-6" />
-              </Button>
+           
 
               <motion.button
                 whileHover={{ scale: 1.05 }}
@@ -735,13 +740,13 @@ Gostaria de confirmar este pedido! 😋`
         <div className="container mx-auto text-center relative z-10">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto">
             <h2 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-pink-600 via-rose-600 to-orange-600 bg-clip-text text-transparent leading-tight">
-              Sorvetes
+              D'Lice Sorvetes
               <br />
               <span className="text-4xl md:text-5xl">de Outro Mundo</span>
             </h2>
             <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
               Sabor que você nunca esquece. Entregamos gelado
-              na sua casa em até 2 horas!
+              na sua casa em até 40 minutos!
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
               <div className="flex items-center space-x-2 text-gray-600">
