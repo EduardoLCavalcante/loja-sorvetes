@@ -804,11 +804,10 @@ Gostaria de confirmar este pedido! 😋`
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto">
             <h2 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-pink-600 via-rose-600 to-orange-600 bg-clip-text text-transparent leading-tight">
               D'Lice Sorvetes
-              <br />
-              <span className="text-4xl md:text-5xl">de Outro Mundo</span>
+              
             </h2>
             <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-              Sabor que você nunca esquece. Entregamos gelado
+              Sabor de querer mais!. Entregamos gelado
               na sua casa em até 40 minutos!
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
