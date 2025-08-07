@@ -246,7 +246,7 @@ const mockProducts: Product[] = [
     categoria: ["Picole"],
     nome_produto: "picole-flocante",
     descricao: "Picolé sabor flocante.",
-    preco: "3.00",
+    preco: "5.00",
     caminho: "picole-flocante.webp",
   },
   {
@@ -310,7 +310,7 @@ const mockProducts: Product[] = [
     categoria: ["Picole"],
     nome_produto: "picole-chocolate-branco",
     descricao: "Picolé sabor chocolate branco.",
-    preco: "3.00",
+    preco: "7.00",
     caminho: "picole-chocolate-branco.webp",
   },
   {
@@ -334,7 +334,7 @@ const mockProducts: Product[] = [
     categoria: ["Picole"],
     nome_produto: "picole-napolitano",
     descricao: "Picolé sabor Napolitano, uma combinação clássica.",
-    preco: "3.00",
+    preco: "3.50",
     caminho: "napolitano.webp",
   },
   {
