@@ -137,7 +137,7 @@ export default function DliceEcommerce() {
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({})
   const [productModal, setProductModal] = useState<ProductWithDefaults | null>(null)
   const [modalImageError, setModalImageError] = useState(false)
-
+ const mobileModalView = "max-h-[90%] max-w-[90vw] my-auto mx-auto px-4"
   // Load products from Supabase API route
   useEffect(() => {
     async function load() {
@@ -695,7 +695,7 @@ Gostaria de confirmar este pedido! 😋`
           if (!open) setProductModal(null)
         }}
       >
-        <DialogContent className="max-w-3xl p-0 overflow-hidden">
+        <DialogContent className={`max-w-3xl p-0 overflow-auto  max-sm:${mobileModalView}`}>
           {productModal && (
             <>
               <DialogHeader className="px-6 pt-6">
