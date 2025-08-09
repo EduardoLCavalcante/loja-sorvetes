@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   keywords: "sorvetes premium, entrega, sobremesa, d'lice",
   generator: "",
   icons: {
-    icon: "public/images/dlice-logo.png",
+    icon: "/images/dlice-logo.png",
   },
 }
 

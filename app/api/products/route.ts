@@ -25,11 +25,11 @@ export async function GET() {
       return NextResponse.json({ error: productsError.message }, { status: 500 })
     }
 
-    // Base public path for images in the 'products' bucket
+    // Base public path for images in the 'products' bucket (in case caminho is just the filename)
     const supabasePublicImagesBase = `${url.replace(/\/$/, "")}/storage/v1/object/public/products/images/`
 
     const out = (products || []).map((p: any) => {
-      const priceVal = p?.price != null ? Number(p.price) : p?.preco != null ? Number(p.preco) : 0
+      const priceVal = p?.price != null ? Number(p.price) : 0
       const originalVal = p?.original_price != null ? Number(p.original_price) : priceVal
 
       // caminho:
@@ -46,7 +46,7 @@ export async function GET() {
         id: p.id,
         nome_produto: p.nome_produto,
         descricao: p.descricao ?? null,
-        preco: priceVal, // expose as 'preco' consistently
+        price: priceVal,
         original_price: originalVal,
         categoria: Array.isArray(p?.categoria) ? p.categoria : [],
         caminho: p.caminho,

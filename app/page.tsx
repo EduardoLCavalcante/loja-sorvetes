@@ -16,7 +16,7 @@ type ProductRecord = {
   nome_produto: string
   nome_exibicao?: string | null
   descricao: string | null
-  preco: number
+  price: number
   original_price: number | null
   categoria: string[]
   caminho: string
@@ -26,7 +26,6 @@ type ProductRecord = {
 }
 
 type ProductWithDefaults = ProductRecord & {
-  price: number
   originalPrice: number
   isNew: boolean
   isBestSeller: boolean
@@ -150,12 +149,12 @@ export default function DliceEcommerce() {
         }
 
         const apiProducts: ProductRecord[] = Array.isArray(json?.products) ? json.products : []
-        const mapped: ProductWithDefaults[] = apiProducts.map((p, idx) => {
-          const price = typeof p.preco === "number" ? p.preco : Number(p.preco)
-          const original = p.original_price != null ? Number(p.original_price) : price
+        const mapped: ProductWithDefaults[] = apiProducts.map((p) => {
+          const priceNum = typeof p.price === "number" ? p.price : Number(p.price)
+          const original = p.original_price != null ? Number(p.original_price) : priceNum
           return {
             ...p,
-            price,
+            price: priceNum,
             originalPrice: original,
             isNew: !!p.is_new,
             isBestSeller: !!p.is_best_seller,
@@ -221,8 +220,13 @@ export default function DliceEcommerce() {
   const handleAddToCart = (product: ProductWithDefaults) => {
     // Ensure image_url is never null, only string or undefined
     const safeProduct = {
-      ...product,
-      image_url: product.image_url === null ? undefined : product.image_url,
+      id: product.id,
+      nome_produto: product.nome_produto,
+      price: product.price,
+      caminho: product.caminho,
+      categoria: product.categoria,
+      image_url: product.image_url ?? undefined,
+      quantity: 1,
     }
     addToCart(safeProduct)
     const button = document.querySelector(`[data-product-id="${product.id}"]`)
@@ -319,7 +323,7 @@ Gostaria de confirmar este pedido! 😋`
             >
               <div className="relative">
                 <Image
-                  src="images/dlice-logo.png"
+                  src="/images/dlice-logo.png"
                   alt="D'lice Sorvetes"
                   width={120}
                   height={60}
