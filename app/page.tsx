@@ -219,7 +219,12 @@ export default function DliceEcommerce() {
   }, [categories, products, searchTerm])
 
   const handleAddToCart = (product: ProductWithDefaults) => {
-    addToCart(product)
+    // Ensure image_url is never null, only string or undefined
+    const safeProduct = {
+      ...product,
+      image_url: product.image_url === null ? undefined : product.image_url,
+    }
+    addToCart(safeProduct)
     const button = document.querySelector(`[data-product-id="${product.id}"]`)
     if (button) {
       button.classList.add("animate-bounce")
@@ -314,7 +319,7 @@ Gostaria de confirmar este pedido! 😋`
             >
               <div className="relative">
                 <Image
-                  src="/placeholder.svg?height=60&width=120"
+                  src="images/dlice-logo.png"
                   alt="D'lice Sorvetes"
                   width={120}
                   height={60}
