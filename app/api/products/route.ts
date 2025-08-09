@@ -50,6 +50,7 @@ export async function GET() {
       return NextResponse.json({ error: productsError.message }, { status: 500 })
     }
 
+    
     // Caminho base público (caso caminho não seja URL absoluta)
     const supabasePublicImagesBase = `${url.replace(/\/$/, "")}/storage/v1/object/public/products/images/`
 
