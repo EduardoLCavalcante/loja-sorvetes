@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { unstable_noStore as noStore } from "next/cache"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
 
 function parsePrice(input: unknown): number | null {
   if (input === null || input === undefined) return null
@@ -28,13 +33,20 @@ function parsePrice(input: unknown): number | null {
 
 export async function GET() {
   try {
+    noStore()
+    const noStoreHeaders = {
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+    }
+
     const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
     const anon = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
     if (!url || !anon) {
       return NextResponse.json(
         { error: "Supabase env not configured (SUPABASE_URL / SUPABASE_ANON_KEY)." },
-        { status: 500 },
+        { status: 500, headers: noStoreHeaders },
       )
     }
 
@@ -47,10 +59,9 @@ export async function GET() {
       .order("created_at", { ascending: false })
 
     if (productsError) {
-      return NextResponse.json({ error: productsError.message }, { status: 500 })
+      return NextResponse.json({ error: productsError.message }, { status: 500, headers: noStoreHeaders })
     }
 
-    
     // Caminho base público (caso caminho não seja URL absoluta)
     const supabasePublicImagesBase = `${url.replace(/\/$/, "")}/storage/v1/object/public/products/images/`
 
@@ -98,7 +109,7 @@ export async function GET() {
     }
     const categories = Array.from(catSet).sort((a, b) => a.localeCompare(b, "pt-BR"))
 
-    return NextResponse.json({ products: out, categories })
+    return NextResponse.json({ products: out, categories }, { headers: noStoreHeaders })
   } catch (err: any) {
     console.error("GET /api/products error:", err?.message || err)
     return NextResponse.json({ error: "Internal error while listing products." }, { status: 500 })
