@@ -972,14 +972,6 @@ function ProductCard({
             </Badge>
           )}
 
-          {/* Favorite Button */}
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            className="absolute bottom-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300"
-          >
-            <Heart className="w-5 h-5 text-pink-500" />
-          </motion.button>
         </div>
 
         <CardContent className="p-6 flex flex-col flex-grow">

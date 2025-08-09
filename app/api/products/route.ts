@@ -56,7 +56,7 @@ export async function GET() {
     const { data: products, error: productsError } = await supabase
       .from("products")
       .select("*")
-      .order("created_at", { ascending: false })
+      .order("price", { ascending: false })
 
     if (productsError) {
       return NextResponse.json({ error: productsError.message }, { status: 500, headers: noStoreHeaders })
