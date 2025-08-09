@@ -1,0 +1,104 @@
+// app/api/products/route.ts
+import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabase = createClient(supabaseUrl!, supabaseKey!)
+
+export async function GET() {
+  const { data: products, error: productsError } = await supabase
+    .from("products")
+    .select("id, nome_produto, descricao, preco, price, original_price, categoria, caminho, is_new, is_best_seller, created_at")
+    .order("created_at", { ascending: false })
+
+  if (productsError) {
+    return NextResponse.json({ error: productsError.message }, { status: 500 })
+  }
+
+  const { data: images, error: imagesError } = await supabase.from("images").select("file_name, public_url")
+
+  if (imagesError) {
+    return NextResponse.json({ error: imagesError.message }, { status: 500 })
+  }
+
+  const imgMap = new Map<string, string>()
+  for (const img of images || []) {
+    if (img.file_name && img.public_url) {
+      imgMap.set(img.file_name, img.public_url)
+    }
+  }
+
+  const out = (products || []).map((p: any) => {
+    const priceVal =
+      p.preco != null
+        ? Number(p.preco)
+        : p.price != null
+        ? Number(p.price)
+        : 0
+
+    const originalVal =
+      p.original_price != null ? Number(p.original_price) : priceVal
+
+    return {
+      id: p.id,
+      nome_produto: p.nome_produto,
+      descricao: p.descricao,
+      preco: priceVal,
+      original_price: originalVal,
+      categoria: Array.isArray(p.categoria) ? p.categoria : [],
+      caminho: p.caminho,
+      is_new: !!p.is_new,
+      is_best_seller: !!p.is_best_seller,
+      image_url: imgMap.get(p.caminho) || null,
+    }
+  })
+
+  const catSet = new Set<string>()
+  for (const p of out) {
+    for (const c of p.categoria || []) {
+      if (c) catSet.add(c)
+    }
+  }
+  const categories = Array.from(catSet).sort((a, b) => a.localeCompare(b, "pt-BR"))
+
+  return NextResponse.json({ products: out, categories })
+}
+
+// app/page.tsx
+import Image from 'next/image'
+import ProductCard from './components/ProductCard'
+import CartSidebar from './components/CartSidebar'
+import CheckoutSummary from './components/CheckoutSummary'
+
+export default function Home() {
+  return (
+    <div>
+      <header>
+        <Image
+          src="/placeholder.svg?height=60&width=120"
+          alt="D'lice Logo"
+          height={60}
+          width={120}
+        />
+      </header>
+      <main>
+        <ProductCard product={{ image_url: null, caminho: 'example.jpg' }} />
+        <CartSidebar items={[{ image_url: null, caminho: 'example.jpg' }]} />
+        <CheckoutSummary items={[{ image_url: null, caminho: 'example.jpg' }]} />
+      </main>
+    </div>
+  )
+}
+
+// app/layout.tsx
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <head>
+        <link rel="icon" href="/placeholder.svg?height=64&width=64" />
+      </head>
+      <body>{children}</body>
+    </html>
+  )
+}

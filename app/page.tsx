@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ShoppingCart, Plus, Minus, Phone, X, Search, Star, Heart, MapPin, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -11,457 +11,27 @@ import { Label } from "@/components/ui/label"
 import { useCart } from "./context/CartContext"
 import Image from "next/image"
 
-interface Product {
-  nome_arquivo: string
-  categoria: string[]
+type ProductRecord = {
+  id: number
   nome_produto: string
-  descricao: string
-  preco: string
+  nome_exibicao?: string | null
+  descricao: string | null
+  preco: number
+  original_price: number | null
+  categoria: string[]
   caminho: string
+  is_new: boolean
+  is_best_seller: boolean
+  image_url: string | null
 }
 
-interface ProductWithDefaults extends Product {
-  id: number
+type ProductWithDefaults = ProductRecord & {
   price: number
   originalPrice: number
   isNew: boolean
   isBestSeller: boolean
 }
 
-// Mock de produtos para exibição (mantém a UI funcionando mesmo sem DB)
-const mockProducts: Product[] = [
-  {
-    nome_arquivo: "baunilha-frutas-vermelhas-2l.webp",
-    categoria: ["Pote 2L"],
-    nome_produto: "dlice-baunilha-frutas-vermelhas",
-    descricao: "Sorvete de baunilha com calda de frutas vermelhas. Cremoso e refrescante.",
-    preco: "24.00",
-    caminho: "baunilha-frutas-vermelhas-2l.webp",
-  },
-  {
-    nome_arquivo: "bombom-2l.webp",
-    categoria: ["Pote 2L"],
-    nome_produto: "dlice-bombom",
-    descricao: "Sorvete sabor bombom com pedaços de chocolate. Um clássico irresistível.",
-    preco: "24.00",
-    caminho: "bombom-2l.webp",
-  },
-  {
-    nome_arquivo: "brigadeiro-2l.webp",
-    categoria: ["Pote 2L"],
-    nome_produto: "dlice-brigadeiro",
-    descricao: "Sorvete de brigadeiro com granulado e calda de chocolate.",
-    preco: "24.00",
-    caminho: "brigadeiro-2l.webp",
-  },
-  {
-    nome_arquivo: "cone-show-brigadeiro-novo.webp",
-    categoria: ["ConeShow"],
-    nome_produto: "dlice-cone-show-brigadeiro",
-    descricao: "Cone crocante recheado com sorvete de brigadeiro e cobertura de chocolate.",
-    preco: "07.00",
-    caminho: "cone-show-brigadeiro-novo.webp",
-  },
-  {
-    nome_arquivo: "cone-show-crocante-novo.webp",
-    categoria: ["ConeShow"],
-    nome_produto: "dlice-cone-show-crocante",
-    descricao: "Cone crocante com sorvete de creme e cobertura de chocolate crocante.",
-    preco: "07.00",
-    caminho: "cone-show-crocante-novo.webp",
-  },
-  {
-    nome_arquivo: "copao-chocreme-novo.webp",
-    categoria: ["Copao"],
-    nome_produto: "dlice-copao-chocreme",
-    descricao: "Copão de chocolate com creme e pedaços de chocolate.",
-    preco: "07.00",
-    caminho: "copao-chocreme-novo.webp",
-  },
-  {
-    nome_arquivo: "copao-napolitano-novo.webp",
-    categoria: ["Copao"],
-    nome_produto: "dlice-copao-napolitano",
-    descricao: "Copão napolitano: chocolate, morango e baunilha juntos.",
-    preco: "07.00",
-    caminho: "copao-napolitano-novo.webp",
-  },
-  {
-    nome_arquivo: "light-napolitano-zero.webp",
-    categoria: ["Light"],
-    nome_produto: "dlice-light-napolitano-zero",
-    descricao: "Sorvete napolitano zero açúcar, leve e saboroso.",
-    preco: "24.00",
-    caminho: "light-napolitano-zero.webp",
-  },
-  {
-    nome_arquivo: "flocos-2l.webp",
-    categoria: ["Pote 2L"],
-    nome_produto: "dlice-flocos",
-    descricao: "Sorvete de flocos",
-    preco: "24.00",
-    caminho: "flocos-2l.webp",
-  },
-  {
-    nome_arquivo: "napolitano-2l.webp",
-    categoria: ["Pote 2L"],
-    nome_produto: "dlice-napolitano",
-    descricao: "Soverte sabor napolitano.",
-    preco: "24.00",
-    caminho: "napolitano-2l.webp",
-  },
-  {
-    nome_arquivo: "frutas-tropicais-2l.webp",
-    categoria: ["Pote 2L"],
-    nome_produto: "dlice-frutas-tropicais",
-    descricao: "frutas tropicais com cobertura especial.",
-    preco: "24.00",
-    caminho: "frutas-tropicais-2l.webp",
-  },
-  {
-    nome_arquivo: "creme-com-passas.webp",
-    categoria: ["Copinho"],
-    nome_produto: "dlice-creme-com-passas",
-    descricao: "Sorvete de creme com passas.",
-    preco: "4.50",
-    caminho: "creme-com-passas.webp",
-  },
-  {
-    nome_arquivo: "bombom-novo.webp",
-    categoria: ["Copinho"],
-    nome_produto: "dlice-bombom",
-    descricao: "Sorvete sabor bombom com pedaços de chocolate.",
-    preco: "4.50",
-    caminho: "bombom-novo.webp",
-  },
-  {
-    nome_arquivo: "napolitano-classico.webp",
-    categoria: ["Copinho"],
-    nome_produto: "dlice-napolitano-classico",
-    descricao: "Sorvete napolitano clássico com camadas de chocolate, morango e baunilha.",
-    preco: "4.50",
-    caminho: "napolitano-classico.webp",
-  },
-  {
-    nome_arquivo: "pote-acai.webp",
-    categoria: ["Açai"],
-    nome_produto: "pote-acai",
-    descricao: "Pote de açaí.",
-    preco: "28.00",
-    caminho: "sorvete-mareni-acai.webp",
-  },
-  {
-    nome_arquivo: "pote-creme-com-passas.webp",
-    categoria: ["Pote 2L"],
-    nome_produto: "creme-com-passas",
-    descricao: "Pote de creme com passas.",
-    preco: "24.00",
-    caminho: "creme-passas-2l.webp",
-  },
-  {
-    nome_arquivo: "pote-nata-goiaba.webp",
-    categoria: ["Pote 2L"],
-    nome_produto: "nata-goiaba",
-    descricao: "Soverte 2L de sabor nata com goiaba.",
-    preco: "24.00",
-    caminho: "nata-goiaba-2l.webp",
-  },
-  {
-    nome_arquivo: "pote-pave.webp",
-    categoria: ["Pote 2L"],
-    nome_produto: "pote-pave",
-    descricao: "Soverte 2L de sabor pavê.",
-    preco: "24.00",
-    caminho: "pave-2l.webp",
-  },
-  {
-    nome_arquivo: "pote-premium-iogurte-morango.webp",
-    categoria: ["Premium"],
-    nome_produto: "premium-iogurte-morango",
-    descricao: "Pote de iogurte com morango.",
-    preco: "26.00",
-    caminho: "pote-premium-iogurte-morango.webp",
-  },
-  {
-    nome_arquivo: "pote-premium-ninho-trufado.webp",
-    categoria: ["Premium"],
-    nome_produto: "premium-ninho-trufado",
-    descricao: "Pote de ninho trufado.",
-    preco: "26.00",
-    caminho: "pote-premium-ninho-trufado.webp",
-  },
-  {
-    nome_arquivo: "pote-toffee.webp",
-    categoria: ["Pote 2L"],
-    nome_produto: "toffee",
-    descricao: "soverte de sabor Toffee.",
-    preco: "24.00",
-    caminho: "toffee-2l.webp",
-  },
-  {
-    nome_arquivo: "sundae-chocolate.webp",
-    categoria: ["Sundae"],
-    nome_produto: "dlice-sundae-chocolate",
-    descricao: "Sundae de chocolate com cobertura de chocolate.",
-    preco: "6.00",
-    caminho: "sundae-chocolate.webp",
-  },
-  {
-    nome_arquivo: "sundae-morango.webp",
-    categoria: ["Sundae"],
-    nome_produto: "dlice-sundae-morango",
-    descricao: "Sundae de morango com cobertura de morango.",
-    preco: "6.00",
-    caminho: "sundae-morango.webp",
-  },
-
-  // PICOLÉS
-  {
-    nome_arquivo: "picole-acai.webp",
-    categoria: ["Picole", "Açai"],
-    nome_produto: "picole-acai",
-    descricao: "Picolé sabor açai",
-    preco: "4.00",
-    caminho: "picole-acai.webp",
-  },
-  {
-    nome_arquivo: "picole-flocante.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-flocante",
-    descricao: "Picolé sabor flocante.",
-    preco: "5.00",
-    caminho: "picole-flocante.webp",
-  },
-  {
-    nome_arquivo: "picole-iogurte-grego.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-iogurte-grego",
-    descricao: "Picolé sabor iogurte grego.",
-    preco: "5.00",
-    caminho: "picole-iogurte-grego.webp",
-  },
-  {
-    nome_arquivo: "picole-leitinho-trufado.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-leitinho-trufado",
-    descricao: "Picolé sabor leitinho trufado.",
-    preco: "5.00",
-    caminho: "picole-leitinho-trufado.webp",
-  },
-  {
-    nome_arquivo: "picole-tablete.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-tablete",
-    descricao: "Picolé sabor tablete, uma combinação perfeita de chocolate e crocância.",
-    preco: "6.00",
-    caminho: "picole-tablete.webp",
-  },
-  {
-    nome_arquivo: "picole-trufa-chocolate.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-trufa-chocolate",
-    descricao: "Picolé sabor trufa de chocolate, uma explosão de sabor.",
-    preco: "5.00",
-    caminho: "picole-trufa-chocolate.webp",
-  },
-  {
-    nome_arquivo: "picole-trufa-morango.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-trufa-morango",
-    descricao: "Picolé sabor trufa de morango, uma explosão de sabor.",
-    preco: "5.00",
-    caminho: "picole-trufa-morango.webp",
-  },
-  {
-    nome_arquivo: "picole-amendoim.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-amêndoas",
-    descricao: "Picolé sabor amêndoas.",
-    preco: "7.00",
-    caminho: "picole-amendoim.webp",
-  },
-  {
-    nome_arquivo: "picole-brigadeiro.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-brigadeiro",
-    descricao: "Picolé sabor brigadeiro.",
-    preco: "6.00",
-    caminho: "picole-brigadeiro.webp",
-  },
-  {
-    nome_arquivo: "picole-chocolate-branco.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-chocolate-branco",
-    descricao: "Picolé sabor chocolate branco.",
-    preco: "7.00",
-    caminho: "picole-chocolate-branco.webp",
-  },
-  {
-    nome_arquivo: "picole-classico.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-classico",
-    descricao: "Picolé sabor clássico.",
-    preco: "7.00",
-    caminho: "picole-classico.webp",
-  },
-  {
-    nome_arquivo: "picole-chocolate.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-chocolate",
-    descricao: "Picolé sabor chocolate.",
-    preco: "3.00",
-    caminho: "chocolate.webp",
-  },
-  {
-    nome_arquivo: "picole-napolitano.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-napolitano",
-    descricao: "Picolé sabor Napolitano, uma combinação clássica.",
-    preco: "3.50",
-    caminho: "napolitano.webp",
-  },
-  {
-    nome_arquivo: "picole-coco.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-coco",
-    descricao: "Picolé sabor coco.",
-    preco: "3.00",
-    caminho: "coco.webp",
-  },
-  {
-    nome_arquivo: "picole-tapioca.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-tapioca",
-    descricao: "Picolé sabor tapioca, uma delícia nordestina.",
-    preco: "3.50",
-    caminho: "tapioca.webp",
-  },
-  {
-    nome_arquivo: "picole-morango.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-morango",
-    descricao: "Picolé sabor morango, uma explosão de sabor.",
-    preco: "3.00",
-    caminho: "morango.webp",
-  },
-  {
-    nome_arquivo: "picole-abacaxi.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-abacaxi",
-    descricao: "Picolé sabor abacaxi, refrescante e natural.",
-    preco: "3.00",
-    caminho: "picole-abacaxi.webp",
-  },
-  {
-    nome_arquivo: "picole-caja.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-caja",
-    descricao: "Picolé sabor cajá, perfeito para dias quentes.",
-    preco: "3.00",
-    caminho: "picole-caja.webp",
-  },
-  {
-    nome_arquivo: "picole-goiaba.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-goiaba",
-    descricao: "Picolé sabor goiaba, doce na medida certa.",
-    preco: "3.00",
-    caminho: "picole-goiaba.webp",
-  },
-  {
-    nome_arquivo: "picole-graviola.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-graviola",
-    descricao: "Picolé sabor graviola, cremoso e tropical.",
-    preco: "3.00",
-    caminho: "picole-graviola.webp",
-  },
-  {
-    nome_arquivo: "picole-limao.webp",
-    categoria: ["Picole"],
-    nome_produto: "picole-limao",
-    descricao: "Picolé sabor limão, refrescância garantida.",
-    preco: "3.00",
-    caminho: "picole-limao.webp",
-  },
-]
-
-// Produtos de combos/kits
-const newComboProducts: Product[] = [
-  {
-    nome_arquivo: "combo-coneshow.webp",
-    categoria: ["Combos"],
-    nome_produto: "dlice-combo-cone-show",
-    descricao:
-      "Combo especial com 6 unidades de Cone Show. Sorvetes cremosos de chocolate e baunilha em cones crocantes. Perfeito para compartilhar!",
-    preco: "39.99",
-    caminho: "combo-coneshow.webp",
-  },
-  {
-    nome_arquivo: "combo-familia.webp",
-    categoria: ["Combos"],
-    nome_produto: "dlice-combo-familia",
-    descricao:
-      "Combo Família com sorvetes Pavê + cone. Sabores: bombom, brigadeiro, creme com passas, nata goiaba, frutas tropicais, flocos, baunilha com calda de frutas vermelhas, napolitano, pavê e toffee.",
-    preco: "30.00",
-    caminho: "combo-familia.webp",
-  },
-  {
-    nome_arquivo: "combo-premium.webp",
-    categoria: ["Combos"],
-    nome_produto: "dlice-combo-premium",
-    descricao:
-      "Combo Premium com sorvete Ninho Trufado + 10 cones especiais. Uma experiência premium e deliciosa para toda família.",
-    preco: "32.00",
-    caminho: "combo-premium.webp",
-  },
-  {
-    nome_arquivo: "kit-aniversario.webp",
-    categoria: ["Kits"],
-    nome_produto: "dlice-kit-aniversario",
-    descricao:
-      "Kit Aniversário completo! Inclui sorvete Napolitano 10L + cobertura de morango + 40 cones. Combinação perfeita para festas e celebrações especiais.",
-    preco: "180.00",
-    caminho: "kit-aniversario.webp",
-  },
-  {
-    nome_arquivo: "combo-picole-frutas.webp",
-    categoria: ["Combos"],
-    nome_produto: "dlice-combo-picole-frutas",
-    descricao:
-      "Combo Picolé Frutas com 7 unidades. Sabores tropicais: Cajá, Abacaxi, Goiaba, Graviola e Limão. Refrescante e natural!",
-    preco: "20.00",
-    caminho: "combo-picole-frutas.webp",
-  },
-  {
-    nome_arquivo: "combo-sunday.webp",
-    categoria: ["Combos"],
-    nome_produto: "dlice-combo-sunday",
-    descricao:
-      "Combo Sunday especial com 6 unidades. Sabores chocolate e morango com coberturas especiais. Ideal para o fim de semana!",
-    preco: "35.00",
-    caminho: "combo-sunday.webp",
-  },
-]
-
-// Defaults
-const generateProductDefaults = (product: Product, index: number): ProductWithDefaults => {
-  const price = Number.parseFloat(product.preco.replace(",", "."))
-  const originalPrice = price
-  return {
-    ...product,
-    id: index + 1,
-    price,
-    originalPrice,
-    isNew: false,
-    isBestSeller: false,
-    descricao:
-      product.descricao ||
-      `Delicioso sorvete ${product.nome_produto.toLowerCase().replace(/-/g, " ")} feito com ingredientes premium selecionados.`,
-  }
-}
-
-// Utils
 const formatProductName = (name: string) =>
   name
     .replace(/-/g, " ")
@@ -470,7 +40,7 @@ const formatProductName = (name: string) =>
     .trim()
 
 const formatCategoryName = (category: string | string[]) => {
-  const categoryNames: { [key: string]: string } = {
+  const categoryNames: Record<string, string> = {
     ConeShow: "Cone Show",
     Copao: "Copão",
     Copinho: "Copinho",
@@ -488,7 +58,7 @@ const formatCategoryName = (category: string | string[]) => {
   return categoryNames[category] || category
 }
 
-// Taxas
+// Mapeamento dos bairros e suas taxas
 const bairrosTaxas: { [bairro: string]: number } = {
   "ANTÔNIO HOLANDA": 6,
   ARRAIAL: 6,
@@ -553,8 +123,9 @@ export default function DliceEcommerce() {
   const [searchTerm, setSearchTerm] = useState("")
   const [showFloatingCart, setShowFloatingCart] = useState(false)
   const [products, setProducts] = useState<ProductWithDefaults[]>([])
-  const [categories, setCategories] = useState<string[]>([])
+  const [categories, setCategories] = useState<string[]>(["Todos"])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [deliveryInfo, setDeliveryInfo] = useState({
     name: "",
     phone: "",
@@ -565,70 +136,91 @@ export default function DliceEcommerce() {
     paymentMethod: "",
   })
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({})
-  const [imageUrlMap, setImageUrlMap] = useState<Record<string, string>>({})
 
-  // Load mock products
+  // Load products from Supabase API route
   useEffect(() => {
-    const allProducts = [...mockProducts, ...newComboProducts]
-    const productsWithDefaults = allProducts.map((product, index) => generateProductDefaults(product, index))
-    setProducts(productsWithDefaults)
-
-    const uniqueCategories = ["Todos", ...Array.from(new Set(allProducts.flatMap((p) => p.categoria)))]
-    setCategories(uniqueCategories)
-
-    setLoading(false)
-  }, [])
-
-  // Load Supabase images map + categories
-  useEffect(() => {
-    async function loadAssets() {
+    async function load() {
       try {
-        const res = await fetch("/api/assets")
+        setLoading(true)
+        const res = await fetch("/api/products", { cache: "no-store" })
         const json = await res.json()
-        if (json?.images) setImageUrlMap(json.images as Record<string, string>)
 
-        if (Array.isArray(json?.categories) && json.categories.length > 0) {
-          setCategories((prev) => {
-            const set = new Set(prev.filter((c) => c !== "Todos"))
-            for (const c of json.categories as string[]) set.add(c)
-            return ["Todos", ...Array.from(set)]
-          })
+        if (!res.ok) {
+          throw new Error(json?.error || "Falha ao carregar produtos.")
         }
-      } catch (e) {
-        console.warn("Failed to load Supabase assets", e)
+
+        const apiProducts: ProductRecord[] = Array.isArray(json?.products) ? json.products : []
+        const mapped: ProductWithDefaults[] = apiProducts.map((p, idx) => {
+          const price = typeof p.preco === "number" ? p.preco : Number(p.preco)
+          const original = p.original_price != null ? Number(p.original_price) : price
+          return {
+            ...p,
+            price,
+            originalPrice: original,
+            isNew: !!p.is_new,
+            isBestSeller: !!p.is_best_seller,
+          }
+        })
+
+        setProducts(mapped)
+
+        const catsFromApi = Array.isArray(json?.categories) ? (json.categories as string[]) : []
+        // Also include any categories present on the products array
+        const catSet = new Set<string>()
+        for (const p of mapped) {
+          for (const c of p.categoria || []) catSet.add(c)
+        }
+        for (const c of catsFromApi) catSet.add(c)
+
+        setCategories(["Todos", ...Array.from(catSet)])
+      } catch (e: any) {
+        console.error(e)
+        setError(e?.message || "Erro ao carregar produtos.")
+      } finally {
+        setLoading(false)
       }
     }
-    loadAssets()
+    load()
   }, [])
 
   useEffect(() => {
     setShowFloatingCart(getTotalItems() > 0)
   }, [getTotalItems])
 
-  const filteredProducts = products.filter((product) => {
-    const matchesCategory = selectedCategory === "" || product.categoria.includes(selectedCategory)
-    const matchesSearch = formatProductName(product.nome_produto).toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesCategory && matchesSearch
-  })
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const matchesCategory = selectedCategory === "Todos" || product.categoria.includes(selectedCategory)
+      const matchesSearch = (product.nome_exibicao ? product.nome_exibicao : formatProductName(product.nome_produto))
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
+      return matchesCategory && matchesSearch
+    })
+  }, [products, selectedCategory, searchTerm])
 
-  const groupedProducts = categories
-    .filter((cat) => cat !== "Todos")
-    .reduce(
-      (acc, category) => {
-        const filtered = products
-          .filter((product) => product.categoria.includes(category))
-          .filter((product) => formatProductName(product.nome_produto).toLowerCase().includes(searchTerm.toLowerCase()))
-        if (filtered.length > 0) {
-          acc[category] = filtered
-        }
-        return acc
-      },
-      {} as { [key: string]: ProductWithDefaults[] },
-    )
+  const groupedProducts = useMemo(() => {
+    return categories
+      .filter((cat) => cat !== "Todos")
+      .reduce(
+        (acc, category) => {
+          const filtered = products
+            .filter((product) => product.categoria.includes(category))
+            .filter((product) =>
+              (product.nome_exibicao ? product.nome_exibicao : formatProductName(product.nome_produto))
+                .toLowerCase()
+                .includes(searchTerm.toLowerCase()),
+            )
+          if (filtered.length > 0) {
+            acc[category] = filtered
+          }
+          return acc
+        },
+        {} as { [key: string]: ProductWithDefaults[] },
+      )
+  }, [categories, products, searchTerm])
 
   const handleAddToCart = (product: ProductWithDefaults) => {
     addToCart(product)
-    const button = document.querySelector(`[data-product-id="${product.id}"]`) as HTMLElement | null
+    const button = document.querySelector(`[data-product-id="${product.id}"]`)
     if (button) {
       button.classList.add("animate-bounce")
       setTimeout(() => button.classList.remove("animate-bounce"), 500)
@@ -638,12 +230,14 @@ export default function DliceEcommerce() {
   const generateWhatsAppMessage = () => {
     const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
     const totalComFrete = getTotalPrice() + taxaEntrega
+
     const items = cart
       .map(
         (item) =>
           `• ${formatProductName(item.nome_produto)} (${item.categoria}) (${item.quantity}x) - R$ ${(item.price * item.quantity).toFixed(2)}`,
       )
       .join("\n")
+
     const message = `🍦 *Pedido D'lice Sorvetes* 🍦
 
 *Produtos Selecionados:*
@@ -680,11 +274,26 @@ Gostaria de confirmar este pedido! 😋`
     )
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50 flex items-center justify-center px-4">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow p-6 max-w-md text-center">
+          <p className="text-red-600 font-semibold mb-2">Erro</p>
+          <p className="text-gray-700 mb-4">{error}</p>
+          <Button onClick={() => location.reload()} className="bg-pink-600 text-white">
+            Tentar novamente
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-orange-100 shadow-lg">
         <div className="container mx-auto px-4">
+          {/* Top Bar */}
           <div className="flex items-center justify-between py-2 text-sm text-gray-600 border-b border-gray-100">
             <div className="hidden md:flex items-center space-x-1">
               <Clock className="w-4 h-4 text-pink-500" />
@@ -696,6 +305,7 @@ Gostaria de confirmar este pedido! 😋`
             </div>
           </div>
 
+          {/* Main Header */}
           <div className="flex items-center justify-between py-4">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -704,7 +314,7 @@ Gostaria de confirmar este pedido! 😋`
             >
               <div className="relative">
                 <Image
-                  src="/images/dlice-logo.webp"
+                  src="/placeholder.svg?height=60&width=120"
                   alt="D'lice Sorvetes"
                   width={120}
                   height={60}
@@ -713,9 +323,10 @@ Gostaria de confirmar este pedido! 😋`
               </div>
             </motion.div>
 
+            {/* Search Bar - Desktop */}
             <div className="text-[8px] md:flex flex-1 max-w-md mx-8">
               <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <Input
                   placeholder="Buscar sabores..."
                   value={searchTerm}
@@ -725,6 +336,7 @@ Gostaria de confirmar este pedido! 😋`
               </div>
             </div>
 
+            {/* Header Actions */}
             <div className="flex items-center space-x-3">
               <motion.button
                 whileHover={{ scale: 1.05 }}
@@ -746,6 +358,7 @@ Gostaria de confirmar este pedido! 😋`
             </div>
           </div>
 
+          {/* Categories Navigation */}
           <div className="pb-4">
             <div className="flex space-x-2 overflow-x-auto scrollbar-hide">
               {categories.map((category) => (
@@ -768,7 +381,7 @@ Gostaria de confirmar este pedido! 😋`
         </div>
       </header>
 
-      {/* Hero */}
+      {/* Hero Section */}
       <section className="relative py-16 px-4 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-pink-600/10 via-rose-600/10 to-orange-600/10" />
         <div className="container mx-auto text-center relative z-10">
@@ -788,7 +401,7 @@ Gostaria de confirmar este pedido! 😋`
         </div>
       </section>
 
-      {/* Products */}
+      {/* Products by Category */}
       {selectedCategory === "Todos" ? (
         <section className="py-12 px-4">
           <div className="container mx-auto">
@@ -809,7 +422,7 @@ Gostaria de confirmar este pedido! 😋`
                   </Badge>
                 </div>
 
-                {/* Mobile: horizontal scroll */}
+                {/* Mobile: Scroll horizontal */}
                 <div className="md:hidden">
                   <div className="flex space-x-4 overflow-x-auto pb-4 scrollbar-hide">
                     {categoryProducts.map((product, index) => (
@@ -825,14 +438,13 @@ Gostaria de confirmar este pedido! 😋`
                           onAddToCart={handleAddToCart}
                           imageErrors={imageErrors}
                           setImageErrors={setImageErrors}
-                          imageUrlMap={imageUrlMap}
                         />
                       </motion.div>
                     ))}
                   </div>
                 </div>
 
-                {/* Desktop: grid */}
+                {/* Desktop: Grid */}
                 <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                   {categoryProducts.map((product, index) => (
                     <motion.div
@@ -846,7 +458,6 @@ Gostaria de confirmar este pedido! 😋`
                         onAddToCart={handleAddToCart}
                         imageErrors={imageErrors}
                         setImageErrors={setImageErrors}
-                        imageUrlMap={imageUrlMap}
                       />
                     </motion.div>
                   ))}
@@ -856,6 +467,7 @@ Gostaria de confirmar este pedido! 😋`
           </div>
         </section>
       ) : (
+        // Mostrar produtos filtrados
         <section className="py-12 px-4">
           <div className="container mx-auto">
             <motion.div
@@ -876,7 +488,6 @@ Gostaria de confirmar este pedido! 😋`
                     onAddToCart={handleAddToCart}
                     imageErrors={imageErrors}
                     setImageErrors={setImageErrors}
-                    imageUrlMap={imageUrlMap}
                   />
                 </motion.div>
               ))}
@@ -975,7 +586,7 @@ Gostaria de confirmar este pedido! 😋`
                         >
                           {!imageErrors[item.id] ? (
                             <Image
-                              src={imageUrlMap[item.caminho] || `/images/${item.caminho}`}
+                              src={item.image_url || "/placeholder.svg?height=80&width=80&query=miniatura%20sorvete"}
                               alt={formatProductName(item.nome_produto)}
                               width={80}
                               height={80}
@@ -1028,17 +639,12 @@ Gostaria de confirmar este pedido! 😋`
                               <span>Subtotal:</span>
                               <span>R$ {getTotalPrice().toFixed(2)}</span>
                             </div>
-                            {(() => {
-                              const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
-                              return (
-                                <div className="flex justify-between text-gray-600">
-                                  <span>Entrega:</span>
-                                  <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
-                                    {taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}
-                                  </span>
-                                </div>
-                              )
-                            })()}
+                            <div className="flex justify-between text-gray-600">
+                              <span>Entrega:</span>
+                              <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
+                                {taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}
+                              </span>
+                            </div>
                           </div>
                           <div className="flex justify-between items-center text-2xl font-bold border-t border-orange-100 pt-4">
                             <span>Total:</span>
@@ -1095,7 +701,7 @@ Gostaria de confirmar este pedido! 😋`
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Form */}
+                    {/* Formulário de dados */}
                     <div className="space-y-6">
                       <h3 className="text-lg font-semibold text-gray-800 border-b border-orange-100 pb-2">
                         Dados para Entrega
@@ -1114,6 +720,7 @@ Gostaria de confirmar este pedido! 😋`
                             className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
                           />
                         </div>
+
                         <div>
                           <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">
                             Telefone
@@ -1154,6 +761,7 @@ Gostaria de confirmar este pedido! 😋`
                             className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
                           />
                         </div>
+
                         <div>
                           <Label htmlFor="neighborhood" className="text-sm font-semibold text-gray-700">
                             Bairro
@@ -1201,7 +809,7 @@ Gostaria de confirmar este pedido! 😋`
                       </div>
                     </div>
 
-                    {/* Summary */}
+                    {/* Resumo do pedido */}
                     <div className="space-y-6">
                       <h3 className="text-lg font-semibold text-gray-800 border-b border-orange-100 pb-2">
                         Resumo do Pedido
@@ -1214,7 +822,9 @@ Gostaria de confirmar este pedido! 😋`
                               <div className="flex items-center space-x-3">
                                 {!imageErrors[item.id] ? (
                                   <Image
-                                    src={imageUrlMap[item.caminho] || `/images/${item.caminho}`}
+                                    src={
+                                      item.image_url || "/placeholder.svg?height=40&width=40&query=miniatura%20sorvete"
+                                    }
                                     alt={formatProductName(item.nome_produto)}
                                     width={40}
                                     height={40}
@@ -1307,22 +917,21 @@ function ProductCard({
   onAddToCart,
   imageErrors,
   setImageErrors,
-  imageUrlMap,
 }: {
   product: ProductWithDefaults
   onAddToCart: (product: ProductWithDefaults) => void
   imageErrors: { [key: number]: boolean }
   setImageErrors: (errors: { [key: number]: boolean }) => void
-  imageUrlMap: Record<string, string>
 }) {
+  const displayName = product.nome_exibicao || formatProductName(product.nome_produto)
   return (
     <motion.div whileHover={{ y: -8, scale: 1.02 }} className="group">
       <Card className="overflow-hidden border-0 shadow-xl hover:shadow-2xl transition-all duration-500 bg-white/90 backdrop-blur-sm group-hover:bg-white h-full">
         <div className="relative">
           {!imageErrors[product.id] ? (
             <Image
-              src={imageUrlMap[product.caminho] || `/images/${product.caminho}`}
-              alt={formatProductName(product.nome_produto)}
+              src={product.image_url || "/placeholder.svg?height=400&width=400&query=produto%20sorvete"}
+              alt={displayName}
               width={400}
               height={400}
               unoptimized
@@ -1335,22 +944,25 @@ function ProductCard({
                 <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-pink-300 to-orange-300 rounded-full flex items-center justify-center">
                   <span className="text-3xl">🍦</span>
                 </div>
-                <p className="text-gray-500 text-sm font-medium">{formatProductName(product.nome_produto)}</p>
+                <p className="text-gray-500 text-sm font-medium">{displayName}</p>
               </div>
             </div>
           )}
 
+          {/* Badges */}
           <div className="absolute top-3 left-3 flex flex-col space-y-2">
             {product.isNew && <Badge className="bg-green-500 text-white font-semibold">NOVO</Badge>}
             {product.isBestSeller && <Badge className="bg-orange-500 text-white font-semibold">MAIS VENDIDO</Badge>}
           </div>
 
+          {/* Discount Badge */}
           {product.originalPrice > product.price && (
             <Badge className="absolute top-3 right-3 bg-red-500 text-white font-bold">
               -{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
             </Badge>
           )}
 
+          {/* Favorite Button */}
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
@@ -1371,9 +983,11 @@ function ProductCard({
           </div>
 
           <h3 className="text-lg font-bold mb-2 text-gray-800 group-hover:text-pink-600 transition-colors">
-            {formatProductName(product.nome_produto)}
+            {displayName}
           </h3>
-          <p className="text-gray-600 mb-4 text-sm leading-relaxed line-clamp-2 flex-grow">{product.descricao}</p>
+          <p className="text-gray-600 mb-4 text-sm leading-relaxed line-clamp-2 flex-grow">
+            {product.descricao || `Delicioso ${displayName} feito com ingredientes premium selecionados.`}
+          </p>
 
           <div className="flex items-center justify-between mt-auto">
             <div className="flex flex-col">

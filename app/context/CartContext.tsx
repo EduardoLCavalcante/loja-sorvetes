@@ -9,6 +9,7 @@ interface Product {
   caminho: string
   categoria: string[]
   quantity: number
+  image_url?: string
 }
 
 interface CartState {

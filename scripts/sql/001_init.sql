@@ -3,17 +3,17 @@ create extension if not exists pgcrypto;
 
 -- Images metadata table: stores storage path and public urls
 create table if not exists public.images (
-  file_name text primary key,
-  path text not null,
+  id bigserial primary key,
+  file_name text unique not null,
   public_url text not null,
-  categories text[] default '{}'::text[],
-  checksum text,
-  created_at timestamptz not null default now()
+  categories text[] default '{}',
+  metadata jsonb default '{}'::jsonb,
+  created_at timestamptz default now()
 );
 
 -- Indexes
-create unique index if not exists images_file_name_key on public.images (file_name);
-create index if not exists images_categories_gin on public.images using gin (categories);
+create index if not exists idx_images_file_name on public.images (file_name);
+create index if not exists idx_images_categories on public.images using gin (categories);
 
 -- Core catalog (optional now, ready for future migration)
 create table if not exists public.categories (
@@ -148,12 +148,11 @@ begin
     select 1 from pg_policies
     where schemaname = 'public'
       and tablename = 'images'
-      and policyname = 'Public read images'
+      and policyname = 'images_select_anon'
   ) then
-    create policy "Public read images"
+    create policy images_select_anon
       on public.images
       for select
-      to anon, authenticated
       using (true);
   end if;
 end$$;
