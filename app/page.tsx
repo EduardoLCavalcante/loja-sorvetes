@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { ShoppingCart, Plus, Minus, Phone, X, Search, Star, Heart, MapPin, Clock } from "lucide-react"
+import { ShoppingCart, Plus, Minus, X, Search, Star, MapPin, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { useCart } from "./context/CartContext"
 import Image from "next/image"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 
 type ProductRecord = {
   id: number
@@ -135,6 +135,8 @@ export default function DliceEcommerce() {
     paymentMethod: "",
   })
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({})
+  const [productModal, setProductModal] = useState<ProductWithDefaults | null>(null)
+  const [modalImageError, setModalImageError] = useState(false)
 
   // Load products from Supabase API route
   useEffect(() => {
@@ -161,11 +163,9 @@ export default function DliceEcommerce() {
           }
         })
 
-        
         setProducts(mapped)
 
         const catsFromApi = Array.isArray(json?.categories) ? (json.categories as string[]) : []
-        // Also include any categories present on the products array
         const catSet = new Set<string>()
         for (const p of mapped) {
           for (const c of p.categoria || []) catSet.add(c)
@@ -219,7 +219,6 @@ export default function DliceEcommerce() {
   }, [categories, products, searchTerm])
 
   const handleAddToCart = (product: ProductWithDefaults) => {
-    // Ensure image_url is never null, only string or undefined
     const safeProduct = {
       id: product.id,
       nome_produto: product.nome_produto,
@@ -235,6 +234,11 @@ export default function DliceEcommerce() {
       button.classList.add("animate-bounce")
       setTimeout(() => button.classList.remove("animate-bounce"), 500)
     }
+  }
+
+  const openProductModal = (p: ProductWithDefaults) => {
+    setProductModal(p)
+    setModalImageError(false)
   }
 
   const generateWhatsAppMessage = () => {
@@ -446,6 +450,7 @@ Gostaria de confirmar este pedido! 😋`
                         <ProductCard
                           product={product}
                           onAddToCart={handleAddToCart}
+                          onOpen={openProductModal}
                           imageErrors={imageErrors}
                           setImageErrors={setImageErrors}
                         />
@@ -466,6 +471,7 @@ Gostaria de confirmar este pedido! 😋`
                       <ProductCard
                         product={product}
                         onAddToCart={handleAddToCart}
+                        onOpen={openProductModal}
                         imageErrors={imageErrors}
                         setImageErrors={setImageErrors}
                       />
@@ -496,6 +502,7 @@ Gostaria de confirmar este pedido! 😋`
                   <ProductCard
                     product={product}
                     onAddToCart={handleAddToCart}
+                    onOpen={openProductModal}
                     imageErrors={imageErrors}
                     setImageErrors={setImageErrors}
                   />
@@ -681,243 +688,89 @@ Gostaria de confirmar este pedido! 😋`
         )}
       </AnimatePresence>
 
-      {/* Checkout Modal */}
-      <AnimatePresence>
-        {isCheckoutOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
-              onClick={() => setIsCheckoutOpen(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            >
-              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-                <div className="p-6 md:p-8">
-                  <div className="flex items-center justify-between mb-6 md:mb-8">
-                    <div>
-                      <h2 className="text-2xl md:text-3xl font-bold text-gray-800">Finalizar Pedido</h2>
-                      <p className="text-gray-500">Preencha seus dados para entrega</p>
+      {/* Product Modal */}
+      <Dialog
+        open={!!productModal}
+        onOpenChange={(open) => {
+          if (!open) setProductModal(null)
+        }}
+      >
+        <DialogContent className="max-w-3xl p-0 overflow-hidden">
+          {productModal && (
+            <>
+              <DialogHeader className="px-6 pt-6">
+                <DialogTitle className="text-2xl md:text-3xl">
+                  {productModal.nome_exibicao || formatProductName(productModal.nome_produto)}
+                </DialogTitle>
+                <DialogDescription className="sr-only">{"Detalhes do produto selecionado"}</DialogDescription>
+              </DialogHeader>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+                <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-orange-100 via-pink-100 to-amber-100">
+                  {!modalImageError ? (
+                    <Image
+                      src={
+                        productModal.image_url ||
+                        "/placeholder.svg?height=600&width=600&query=imagem%20de%20produto%20sorvete" ||
+                        "/placeholder.svg"
+                      }
+                      alt={productModal.nome_exibicao || formatProductName(productModal.nome_produto)}
+                      width={800}
+                      height={800}
+                      unoptimized
+                      className="w-full h-auto object-cover"
+                      onError={() => setModalImageError(true)}
+                    />
+                  ) : (
+                    <div className="aspect-square w-full flex items-center justify-center">
+                      <span className="text-6xl">🍦</span>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => setIsCheckoutOpen(false)}>
-                      <X className="w-6 h-6" />
-                    </Button>
+                  )}
+                </div>
+
+                <div className="flex flex-col">
+                  <div className="mb-3">
+                    <Badge variant="outline" className="text-pink-600 border-pink-200">
+                      {formatCategoryName(productModal.categoria)}
+                    </Badge>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Formulário de dados */}
-                    <div className="space-y-6">
-                      <h3 className="text-lg font-semibold text-gray-800 border-b border-orange-100 pb-2">
-                        Dados para Entrega
-                      </h3>
+                  <p className="text-gray-700 leading-relaxed mb-6">
+                    {productModal.descricao ||
+                      `Delicioso ${productModal.nome_exibicao || formatProductName(productModal.nome_produto)} feito com ingredientes premium selecionados.`}
+                  </p>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="name" className="text-sm font-semibold text-gray-700">
-                            Nome Completo
-                          </Label>
-                          <Input
-                            id="name"
-                            value={deliveryInfo.name}
-                            onChange={(e) => setDeliveryInfo({ ...deliveryInfo, name: e.target.value })}
-                            placeholder="Seu nome completo"
-                            className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">
-                            Telefone
-                          </Label>
-                          <Input
-                            id="phone"
-                            value={deliveryInfo.phone}
-                            onChange={(e) => setDeliveryInfo({ ...deliveryInfo, phone: e.target.value })}
-                            placeholder="(11) 99999-9999"
-                            className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="address" className="text-sm font-semibold text-gray-700">
-                          Endereço Completo
-                        </Label>
-                        <Input
-                          id="address"
-                          value={deliveryInfo.address}
-                          onChange={(e) => setDeliveryInfo({ ...deliveryInfo, address: e.target.value })}
-                          placeholder="Rua, número"
-                          className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="complement" className="text-sm font-semibold text-gray-700">
-                            Complemento
-                          </Label>
-                          <Input
-                            id="complement"
-                            value={deliveryInfo.complement}
-                            onChange={(e) => setDeliveryInfo({ ...deliveryInfo, complement: e.target.value })}
-                            placeholder="Apartamento, bloco, etc."
-                            className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="neighborhood" className="text-sm font-semibold text-gray-700">
-                            Bairro
-                          </Label>
-                          <Input
-                            id="neighborhood"
-                            value={deliveryInfo.neighborhood}
-                            onChange={(e) => setDeliveryInfo({ ...deliveryInfo, neighborhood: e.target.value })}
-                            placeholder="Seu bairro"
-                            className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="city" className="text-sm font-semibold text-gray-700">
-                          Cidade
-                        </Label>
-                        <Input
-                          id="city"
-                          value={deliveryInfo.city}
-                          onChange={(e) => setDeliveryInfo({ ...deliveryInfo, city: e.target.value })}
-                          placeholder="Sua cidade"
-                          className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="paymentMethod" className="text-sm font-semibold text-gray-700">
-                          Forma de Pagamento
-                        </Label>
-                        <select
-                          id="paymentMethod"
-                          value={deliveryInfo.paymentMethod}
-                          onChange={(e) => setDeliveryInfo({ ...deliveryInfo, paymentMethod: e.target.value })}
-                          className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300 w-full bg-white"
-                          required
-                        >
-                          <option value="">Selecione</option>
-                          <option value="Pix">Pix</option>
-                          <option value="Dinheiro">Dinheiro</option>
-                          <option value="Cartão(Débito)">Cartão (Débito)</option>
-                          <option value="Cartão(Crédito)">Cartão (Crédito)</option>
-                        </select>
-                      </div>
+                  <div className="mt-auto">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <span className="text-3xl font-extrabold text-pink-600">R$ {productModal.price.toFixed(2)}</span>
+                      {productModal.originalPrice > productModal.price && (
+                        <span className="text-base text-gray-400 line-through">
+                          R$ {productModal.originalPrice.toFixed(2)}
+                        </span>
+                      )}
                     </div>
 
-                    {/* Resumo do pedido */}
-                    <div className="space-y-6">
-                      <h3 className="text-lg font-semibold text-gray-800 border-b border-orange-100 pb-2">
-                        Resumo do Pedido
-                      </h3>
-
-                      <div className="bg-gradient-to-r from-orange-50 to-pink-50 p-4 md:p-6 rounded-2xl border border-orange-100 max-h-80 overflow-y-auto">
-                        <div className="space-y-3">
-                          {cart.map((item) => (
-                            <div key={item.id} className="flex justify-between items-center py-2">
-                              <div className="flex items-center space-x-3">
-                                {!imageErrors[item.id] ? (
-                                  <Image
-                                    src={
-                                      item.image_url || "/placeholder.svg?height=40&width=40&query=miniatura%20sorvete"
-                                    }
-                                    alt={formatProductName(item.nome_produto)}
-                                    width={40}
-                                    height={40}
-                                    unoptimized
-                                    className="w-10 h-10 object-cover rounded-lg flex-shrink-0"
-                                    onError={() => setImageErrors((prev) => ({ ...prev, [item.id]: true }))}
-                                  />
-                                ) : (
-                                  <div className="w-10 h-10 bg-gradient-to-br from-orange-200 to-pink-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <span className="text-sm">🍦</span>
-                                  </div>
-                                )}
-                                <div className="min-w-0 flex-1">
-                                  <p className="font-medium text-gray-800 text-sm truncate">
-                                    {formatProductName(item.nome_produto)}
-                                  </p>
-                                  <p className="text-gray-500 text-xs">Qtd: {item.quantity}</p>
-                                </div>
-                              </div>
-                              <span className="font-semibold text-gray-800 text-sm flex-shrink-0">
-                                R$ {(item.price * item.quantity).toFixed(2)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="space-y-3 p-4 bg-gray-50 rounded-xl">
-                        <div className="flex justify-between text-gray-600">
-                          <span>Subtotal:</span>
-                          <span>R$ {getTotalPrice().toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-gray-600">
-                          <span>Entrega:</span>
-                          {(() => {
-                            const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
-                            return (
-                              <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
-                                {taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}
-                              </span>
-                            )
-                          })()}
-                        </div>
-                        {(() => {
-                          const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
-                          const totalComFrete = getTotalPrice() + taxaEntrega
-                          return (
-                            <div className="border-t border-gray-200 pt-3">
-                              <div className="flex justify-between text-xl font-bold text-gray-800">
-                                <span>Total:</span>
-                                <span className="text-pink-600">R$ {totalComFrete.toFixed(2)}</span>
-                              </div>
-                            </div>
-                          )
-                        })()}
-                      </div>
-
+                    <div className="flex gap-3">
                       <Button
-                        onClick={generateWhatsAppMessage}
-                        disabled={
-                          !deliveryInfo.name ||
-                          !deliveryInfo.phone ||
-                          !deliveryInfo.address ||
-                          !deliveryInfo.neighborhood ||
-                          !deliveryInfo.city
-                        }
-                        className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl text-lg font-semibold flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => {
+                          handleAddToCart(productModal)
+                        }}
+                        className="bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 text-white"
                       >
-                        <Phone className="w-6 h-6" />
-                        <span>Enviar Pedido via WhatsApp</span>
+                        <ShoppingCart className="w-4 h-4" />
+                        <span>Adicionar ao carrinho</span>
                       </Button>
-
-                      <p className="text-center text-sm text-gray-500">
-                        Você será redirecionado para o WhatsApp para confirmar seu pedido
-                      </p>
+                      <Button variant="outline" onClick={() => setProductModal(null)}>
+                        Fechar
+                      </Button>
                     </div>
                   </div>
                 </div>
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -925,11 +778,13 @@ Gostaria de confirmar este pedido! 😋`
 function ProductCard({
   product,
   onAddToCart,
+  onOpen,
   imageErrors,
   setImageErrors,
 }: {
   product: ProductWithDefaults
   onAddToCart: (product: ProductWithDefaults) => void
+  onOpen: (product: ProductWithDefaults) => void
   imageErrors: { [key: number]: boolean }
   setImageErrors: (errors: { [key: number]: boolean }) => void
 }) {
@@ -937,7 +792,8 @@ function ProductCard({
   return (
     <motion.div whileHover={{ y: -8, scale: 1.02 }} className="group">
       <Card className="overflow-hidden border-0 shadow-xl hover:shadow-2xl transition-all duration-500 bg-white/90 backdrop-blur-sm group-hover:bg-white h-full">
-        <div className="relative">
+        {/* Área clicável para abrir o modal (imagem) */}
+        <div className="relative cursor-pointer" onClick={() => onOpen(product)}>
           {!imageErrors[product.id] ? (
             <Image
               src={product.image_url || "/placeholder.svg?height=400&width=400&query=produto%20sorvete"}
@@ -971,7 +827,6 @@ function ProductCard({
               -{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
             </Badge>
           )}
-
         </div>
 
         <CardContent className="p-6 flex flex-col flex-grow">
@@ -984,12 +839,15 @@ function ProductCard({
             </div>
           </div>
 
-          <h3 className="text-lg font-bold mb-2 text-gray-800 group-hover:text-pink-600 transition-colors">
-            {displayName}
-          </h3>
-          <p className="text-gray-600 mb-4 text-sm leading-relaxed line-clamp-2 flex-grow">
-            {product.descricao || `Delicioso ${displayName} feito com ingredientes premium selecionados.`}
-          </p>
+          {/* Título/descrição também abrem o modal */}
+          <div className="cursor-pointer" onClick={() => onOpen(product)}>
+            <h3 className="text-lg font-bold mb-2 text-gray-800 group-hover:text-pink-600 transition-colors">
+              {displayName}
+            </h3>
+            <p className="text-gray-600 mb-4 text-sm leading-relaxed line-clamp-2 flex-grow">
+              {product.descricao || `Delicioso ${displayName} feito com ingredientes premium selecionados.`}
+            </p>
+          </div>
 
           <div className="flex items-center justify-between mt-auto">
             <div className="flex flex-col">
@@ -1005,7 +863,10 @@ function ProductCard({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               data-product-id={product.id}
-              onClick={() => onAddToCart(product)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onAddToCart(product)
+              }}
               className="bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 hover:from-pink-600 hover:via-rose-600 hover:to-pink-700 text-white px-6 py-3 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl flex items-center space-x-2 font-semibold"
             >
               <Plus className="w-4 h-4 max-sm:hidden" />
