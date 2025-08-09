@@ -161,6 +161,7 @@ export default function DliceEcommerce() {
           }
         })
 
+        
         setProducts(mapped)
 
         const catsFromApi = Array.isArray(json?.categories) ? (json.categories as string[]) : []
