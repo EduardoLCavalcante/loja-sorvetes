@@ -2,21 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import {
-  ShoppingCart,
-  Plus,
-  Minus,
-  Phone,
-  X,
-  Search,
-  Menu,
-  Star,
-  Heart,
-  MapPin,
-  Clock,
-  Award,
-  Truck,
-} from "lucide-react"
+import { ShoppingCart, Plus, Minus, Phone, X, Search, Star, Heart, MapPin, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -38,13 +24,11 @@ interface ProductWithDefaults extends Product {
   id: number
   price: number
   originalPrice: number
-  // rating: number
-  // reviews: number
   isNew: boolean
   isBestSeller: boolean
 }
 
-// Mock de produtos para exibição
+// Mock de produtos para exibição (mantém a UI funcionando mesmo sem DB)
 const mockProducts: Product[] = [
   {
     nome_arquivo: "baunilha-frutas-vermelhas-2l.webp",
@@ -230,12 +214,11 @@ const mockProducts: Product[] = [
     preco: "6.00",
     caminho: "sundae-morango.webp",
   },
-  
-  
+
   // PICOLÉS
   {
     nome_arquivo: "picole-acai.webp",
-    categoria: ["Picole","Açai"],
+    categoria: ["Picole", "Açai"],
     nome_produto: "picole-acai",
     descricao: "Picolé sabor açai",
     preco: "4.00",
@@ -402,14 +385,15 @@ const mockProducts: Product[] = [
     caminho: "picole-limao.webp",
   },
 ]
-// Mock de produtos para exibição - adicionar após os produtos existentes
+
+// Produtos de combos/kits
 const newComboProducts: Product[] = [
   {
     nome_arquivo: "combo-coneshow.webp",
     categoria: ["Combos"],
     nome_produto: "dlice-combo-cone-show",
     descricao:
-    "Combo especial com 6 unidades de Cone Show. Sorvetes cremosos de chocolate e baunilha em cones crocantes. Perfeito para compartilhar!",
+      "Combo especial com 6 unidades de Cone Show. Sorvetes cremosos de chocolate e baunilha em cones crocantes. Perfeito para compartilhar!",
     preco: "39.99",
     caminho: "combo-coneshow.webp",
   },
@@ -460,18 +444,15 @@ const newComboProducts: Product[] = [
   },
 ]
 
-// Função para gerar dados padrão para produtos
+// Defaults
 const generateProductDefaults = (product: Product, index: number): ProductWithDefaults => {
-  const price = parseFloat(product.preco.replace(",", "."))
-  const originalPrice = price // Não padroniza, usa o preço do mock
-
+  const price = Number.parseFloat(product.preco.replace(",", "."))
+  const originalPrice = price
   return {
     ...product,
     id: index + 1,
     price,
     originalPrice,
-    // rating: 4.8, // Valor fixo para todos
-     // Valor fixo para todos
     isNew: false,
     isBestSeller: false,
     descricao:
@@ -480,16 +461,14 @@ const generateProductDefaults = (product: Product, index: number): ProductWithDe
   }
 }
 
-// Função para formatar nome do produto
-const formatProductName = (name: string) => {
-  return name
+// Utils
+const formatProductName = (name: string) =>
+  name
     .replace(/-/g, " ")
     .replace(/\b\w/g, (l) => l.toUpperCase())
     .replace(/Dlice/gi, "")
     .trim()
-}
 
-// Função para formatar nome da categoria
 const formatCategoryName = (category: string | string[]) => {
   const categoryNames: { [key: string]: string } = {
     ConeShow: "Cone Show",
@@ -509,10 +488,10 @@ const formatCategoryName = (category: string | string[]) => {
   return categoryNames[category] || category
 }
 
-// Mapeamento dos bairros e suas taxas
+// Taxas
 const bairrosTaxas: { [bairro: string]: number } = {
   "ANTÔNIO HOLANDA": 6,
-  "ARRAIAL": 6,
+  ARRAIAL: 6,
   "ARRAIAL DA LAMBADA": 6,
   "ARRAIAL DE BAIXO": 6,
   "BOA FÉ": 4,
@@ -520,43 +499,44 @@ const bairrosTaxas: { [bairro: string]: number } = {
   "BOM JESUS": 3,
   "BOM JESUS DO CRUZEIRO": 10,
   "BOM NOME": 4,
-  "BROTALÂNDIA": 3,
-  "CANAFISTULA": 4,
-  "CENTRO": 3,
+  BROTALÂNDIA: 3,
+  CANAFISTULA: 4,
+  CENTRO: 3,
   "CIDADE ALTA": 6,
   "CJ FLORES": 4,
   "CJ HABITAR BRASIL": 3,
   "CÓRREGO DE AREIA": 6,
   "DR JOSÉ SIMOES": 3,
   "JOÃO XXIII": 2,
-  "LIMOEIRINHO": 5,
+  LIMOEIRINHO: 5,
   "LIMOEIRO ALTO": 5,
   "LUIZ ALVES": 3,
-  "MILAGRES": 5,
+  MILAGRES: 5,
   "MONSENHOR OTÁVIO": 3,
-  "MORROS": 4,
-  "PITOMBEIRA": 3,
-  "POPULARES": 3,
-  "QUIXABA": 5,
+  MORROS: 4,
+  PITOMBEIRA: 3,
+  POPULARES: 3,
+  QUIXABA: 5,
   "SANTA LUZIA": 3,
   "SÃO RAIMUNDO": 5,
   "SÍTIO ILHAS": 2,
-  "SOBRADO": 3,
-  "SOCORRO": 4,
-  "TRIÂNGULO": 8,
+  SOBRADO: 3,
+  SOCORRO: 4,
+  TRIÂNGULO: 8,
   "VÁRZEA DO COBRA": 5,
   "VILA TETEU": 3,
-  "EUCALIPTOS": 3,
+  EUCALIPTOS: 3,
 }
 
-// Função para buscar taxa pelo bairro digitado (case insensitive e ignora acentos)
 function getTaxaEntrega(bairro: string) {
   if (!bairro) return 0
-  // Remove acentos e deixa maiúsculo
   const normalize = (str: string) =>
-    str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim()
+    str
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase()
+      .trim()
   const bairroNormalizado = normalize(bairro)
-  // Procura por chave igual (ignora acentos)
   for (const nome in bairrosTaxas) {
     if (normalize(nome) === bairroNormalizado) {
       return bairrosTaxas[nome]
@@ -566,10 +546,9 @@ function getTaxaEntrega(bairro: string) {
 }
 
 export default function DliceEcommerce() {
-  const { cart, addToCart, removeFromCart, updateQuantity, getTotalPrice, getTotalItems } = useCart()
+  const { cart, addToCart, updateQuantity, getTotalPrice, getTotalItems } = useCart()
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState("Todos")
   const [searchTerm, setSearchTerm] = useState("")
   const [showFloatingCart, setShowFloatingCart] = useState(false)
@@ -583,36 +562,43 @@ export default function DliceEcommerce() {
     complement: "",
     neighborhood: "",
     city: "",
-    paymentMethod: "", // Novo campo para forma de pagamento
+    paymentMethod: "",
   })
-
-  // Adicionar estado para controlar erros de imagem no início do componente principal
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({})
+  const [imageUrlMap, setImageUrlMap] = useState<Record<string, string>>({})
 
-  // Função para lidar com erros de imagem
-  const handleImageError = (productId: number) => {
-    setImageErrors((prev) => ({ ...prev, [productId]: true }))
-  }
-
-  // Carregar produtos do mock (remover chamada ao JSON)
+  // Load mock products
   useEffect(() => {
-    // Junta os mocks principais e os combos/kits
     const allProducts = [...mockProducts, ...newComboProducts]
     const productsWithDefaults = allProducts.map((product, index) => generateProductDefaults(product, index))
     setProducts(productsWithDefaults)
 
-    // Coleta todas as categorias únicas de todos os produtos (agora array)
-    const uniqueCategories = [
-      "Todos",
-      ...Array.from(
-        new Set(
-          allProducts.flatMap((p) => p.categoria)
-        )
-      ),
-    ]
+    const uniqueCategories = ["Todos", ...Array.from(new Set(allProducts.flatMap((p) => p.categoria)))]
     setCategories(uniqueCategories)
 
     setLoading(false)
+  }, [])
+
+  // Load Supabase images map + categories
+  useEffect(() => {
+    async function loadAssets() {
+      try {
+        const res = await fetch("/api/assets")
+        const json = await res.json()
+        if (json?.images) setImageUrlMap(json.images as Record<string, string>)
+
+        if (Array.isArray(json?.categories) && json.categories.length > 0) {
+          setCategories((prev) => {
+            const set = new Set(prev.filter((c) => c !== "Todos"))
+            for (const c of json.categories as string[]) set.add(c)
+            return ["Todos", ...Array.from(set)]
+          })
+        }
+      } catch (e) {
+        console.warn("Failed to load Supabase assets", e)
+      }
+    }
+    loadAssets()
   }, [])
 
   useEffect(() => {
@@ -620,31 +606,29 @@ export default function DliceEcommerce() {
   }, [getTotalItems])
 
   const filteredProducts = products.filter((product) => {
-    const matchesCategory =
-      selectedCategory === "" ||
-      product.categoria.includes(selectedCategory)
+    const matchesCategory = selectedCategory === "" || product.categoria.includes(selectedCategory)
     const matchesSearch = formatProductName(product.nome_produto).toLowerCase().includes(searchTerm.toLowerCase())
     return matchesCategory && matchesSearch
   })
 
-  // Agrupar produtos por categoria, mostrando só categorias com produtos que batem com a busca
   const groupedProducts = categories
     .filter((cat) => cat !== "Todos")
-    .reduce((acc, category) => {
-      const filtered = products
-        .filter((product) => product.categoria.includes(category))
-        .filter((product) =>
-          formatProductName(product.nome_produto).toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      if (filtered.length > 0) {
-        acc[category] = filtered
-      }
-      return acc
-    }, {} as { [key: string]: ProductWithDefaults[] })
+    .reduce(
+      (acc, category) => {
+        const filtered = products
+          .filter((product) => product.categoria.includes(category))
+          .filter((product) => formatProductName(product.nome_produto).toLowerCase().includes(searchTerm.toLowerCase()))
+        if (filtered.length > 0) {
+          acc[category] = filtered
+        }
+        return acc
+      },
+      {} as { [key: string]: ProductWithDefaults[] },
+    )
 
   const handleAddToCart = (product: ProductWithDefaults) => {
     addToCart(product)
-    const button = document.querySelector(`[data-product-id="${product.id}"]`)
+    const button = document.querySelector(`[data-product-id="${product.id}"]`) as HTMLElement | null
     if (button) {
       button.classList.add("animate-bounce")
       setTimeout(() => button.classList.remove("animate-bounce"), 500)
@@ -654,14 +638,12 @@ export default function DliceEcommerce() {
   const generateWhatsAppMessage = () => {
     const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
     const totalComFrete = getTotalPrice() + taxaEntrega
-
     const items = cart
       .map(
         (item) =>
           `• ${formatProductName(item.nome_produto)} (${item.categoria}) (${item.quantity}x) - R$ ${(item.price * item.quantity).toFixed(2)}`,
       )
       .join("\n")
-
     const message = `🍦 *Pedido D'lice Sorvetes* 🍦
 
 *Produtos Selecionados:*
@@ -700,26 +682,20 @@ Gostaria de confirmar este pedido! 😋`
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50">
-      {/* Enhanced Header */}
+      {/* Header */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-orange-100 shadow-lg">
         <div className="container mx-auto px-4">
-          {/* Top Bar */}
           <div className="flex items-center justify-between py-2 text-sm text-gray-600 border-b border-gray-100">
-            <div className="flex items-center space-x-4">
-              <div className="hidden md:flex items-center space-x-1">
-                <Clock className="w-4 h-4 text-pink-500" />
-                <span>Entrega em até 40 min</span>
-              </div>
+            <div className="hidden md:flex items-center space-x-1">
+              <Clock className="w-4 h-4 text-pink-500" />
+              <span>Entrega em até 40 min</span>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-1">
-                <MapPin className="w-4 h-4 text-pink-500" />
-                <span>Limoeiro do Norte - CE</span>
-              </div>
+            <div className="flex items-center space-x-1">
+              <MapPin className="w-4 h-4 text-pink-500" />
+              <span>Limoeiro do Norte - CE</span>
             </div>
           </div>
 
-          {/* Main Header */}
           <div className="flex items-center justify-between py-4">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -737,10 +713,9 @@ Gostaria de confirmar este pedido! 😋`
               </div>
             </motion.div>
 
-            {/* Search Bar - Desktop */}
             <div className="text-[8px] md:flex flex-1 max-w-md mx-8">
               <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <Input
                   placeholder="Buscar sabores..."
                   value={searchTerm}
@@ -750,10 +725,7 @@ Gostaria de confirmar este pedido! 😋`
               </div>
             </div>
 
-            {/* Header Actions */}
             <div className="flex items-center space-x-3">
-           
-
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -774,7 +746,6 @@ Gostaria de confirmar este pedido! 😋`
             </div>
           </div>
 
-          {/* Categories Navigation */}
           <div className="pb-4">
             <div className="flex space-x-2 overflow-x-auto scrollbar-hide">
               {categories.map((category) => (
@@ -797,33 +768,28 @@ Gostaria de confirmar este pedido! 😋`
         </div>
       </header>
 
-      {/* Hero Section */}
+      {/* Hero */}
       <section className="relative py-16 px-4 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-pink-600/10 via-rose-600/10 to-orange-600/10" />
         <div className="container mx-auto text-center relative z-10">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto">
             <h2 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-pink-600 via-rose-600 to-orange-600 bg-clip-text text-transparent leading-tight">
               D'Lice Sorvetes
-              
             </h2>
             <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-              Sabor de querer mais!. Entregamos gelado
-              na sua casa em até 40 minutos!
+              Sabor de querer mais!. Entregamos gelado na sua casa em até 40 minutos!
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
-              <div className="flex items-center space-x-2 text-gray-600">
-                <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                <span className="font-semibold">4.9/5</span>
-                <span>• {products.length} produtos disponíveis</span>
-              </div>
+            <div className="flex items-center justify-center space-x-2 text-gray-600">
+              <Star className="w-5 h-5 text-yellow-400 fill-current" />
+              <span className="font-semibold">4.9/5</span>
+              <span>• {products.length} produtos disponíveis</span>
             </div>
           </motion.div>
         </div>
       </section>
 
-      {/* Products by Category */}
+      {/* Products */}
       {selectedCategory === "Todos" ? (
-        // Mostrar produtos agrupados por categoria
         <section className="py-12 px-4">
           <div className="container mx-auto">
             {Object.entries(groupedProducts).map(([categoryName, categoryProducts], categoryIndex) => (
@@ -843,7 +809,7 @@ Gostaria de confirmar este pedido! 😋`
                   </Badge>
                 </div>
 
-                {/* Mobile: Scroll horizontal */}
+                {/* Mobile: horizontal scroll */}
                 <div className="md:hidden">
                   <div className="flex space-x-4 overflow-x-auto pb-4 scrollbar-hide">
                     {categoryProducts.map((product, index) => (
@@ -859,13 +825,14 @@ Gostaria de confirmar este pedido! 😋`
                           onAddToCart={handleAddToCart}
                           imageErrors={imageErrors}
                           setImageErrors={setImageErrors}
+                          imageUrlMap={imageUrlMap}
                         />
                       </motion.div>
                     ))}
                   </div>
                 </div>
 
-                {/* Desktop: Grid */}
+                {/* Desktop: grid */}
                 <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                   {categoryProducts.map((product, index) => (
                     <motion.div
@@ -879,6 +846,7 @@ Gostaria de confirmar este pedido! 😋`
                         onAddToCart={handleAddToCart}
                         imageErrors={imageErrors}
                         setImageErrors={setImageErrors}
+                        imageUrlMap={imageUrlMap}
                       />
                     </motion.div>
                   ))}
@@ -888,7 +856,6 @@ Gostaria de confirmar este pedido! 😋`
           </div>
         </section>
       ) : (
-        // Mostrar produtos filtrados
         <section className="py-12 px-4">
           <div className="container mx-auto">
             <motion.div
@@ -909,6 +876,7 @@ Gostaria de confirmar este pedido! 😋`
                     onAddToCart={handleAddToCart}
                     imageErrors={imageErrors}
                     setImageErrors={setImageErrors}
+                    imageUrlMap={imageUrlMap}
                   />
                 </motion.div>
               ))}
@@ -1007,12 +975,13 @@ Gostaria de confirmar este pedido! 😋`
                         >
                           {!imageErrors[item.id] ? (
                             <Image
-                              src={`/images/${item.caminho}`}
+                              src={imageUrlMap[item.caminho] || `/images/${item.caminho}`}
                               alt={formatProductName(item.nome_produto)}
                               width={80}
                               height={80}
+                              unoptimized
                               className="w-20 h-20 object-cover rounded-xl"
-                              onError={() => handleImageError(item.id)}
+                              onError={() => setImageErrors((prev) => ({ ...prev, [item.id]: true }))}
                             />
                           ) : (
                             <div className="w-20 h-20 bg-gradient-to-br from-orange-200 to-pink-200 rounded-xl flex items-center justify-center">
@@ -1049,10 +1018,9 @@ Gostaria de confirmar este pedido! 😋`
                       ))}
                     </div>
 
-                    {/* Defina taxaEntrega e totalComFrete antes de usar */}
                     {(() => {
-                      const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood);
-                      const totalComFrete = getTotalPrice() + taxaEntrega;
+                      const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
+                      const totalComFrete = getTotalPrice() + taxaEntrega
                       return (
                         <div className="border-t border-orange-100 pt-6 mb-6">
                           <div className="space-y-2 mb-4">
@@ -1061,28 +1029,23 @@ Gostaria de confirmar este pedido! 😋`
                               <span>R$ {getTotalPrice().toFixed(2)}</span>
                             </div>
                             {(() => {
-                              const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood);
+                              const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
                               return (
                                 <div className="flex justify-between text-gray-600">
                                   <span>Entrega:</span>
                                   <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
-                                    {(() => {
-                                      const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood);
-                                      return taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor";
-                                    })()}
+                                    {taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}
                                   </span>
                                 </div>
-                              );
+                              )
                             })()}
                           </div>
                           <div className="flex justify-between items-center text-2xl font-bold border-t border-orange-100 pt-4">
                             <span>Total:</span>
-                            <span className="text-pink-600">
-                              R$ {totalComFrete.toFixed(2)}
-                            </span>
+                            <span className="text-pink-600">R$ {totalComFrete.toFixed(2)}</span>
                           </div>
                         </div>
-                      );
+                      )
                     })()}
 
                     <Button
@@ -1132,7 +1095,7 @@ Gostaria de confirmar este pedido! 😋`
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Formulário de dados */}
+                    {/* Form */}
                     <div className="space-y-6">
                       <h3 className="text-lg font-semibold text-gray-800 border-b border-orange-100 pb-2">
                         Dados para Entrega
@@ -1151,7 +1114,6 @@ Gostaria de confirmar este pedido! 😋`
                             className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
                           />
                         </div>
-
                         <div>
                           <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">
                             Telefone
@@ -1192,7 +1154,6 @@ Gostaria de confirmar este pedido! 😋`
                             className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
                           />
                         </div>
-
                         <div>
                           <Label htmlFor="neighborhood" className="text-sm font-semibold text-gray-700">
                             Bairro
@@ -1240,7 +1201,7 @@ Gostaria de confirmar este pedido! 😋`
                       </div>
                     </div>
 
-                    {/* Resumo do pedido */}
+                    {/* Summary */}
                     <div className="space-y-6">
                       <h3 className="text-lg font-semibold text-gray-800 border-b border-orange-100 pb-2">
                         Resumo do Pedido
@@ -1253,12 +1214,13 @@ Gostaria de confirmar este pedido! 😋`
                               <div className="flex items-center space-x-3">
                                 {!imageErrors[item.id] ? (
                                   <Image
-                                    src={`/images/${item.caminho}`}
+                                    src={imageUrlMap[item.caminho] || `/images/${item.caminho}`}
                                     alt={formatProductName(item.nome_produto)}
                                     width={40}
                                     height={40}
+                                    unoptimized
                                     className="w-10 h-10 object-cover rounded-lg flex-shrink-0"
-                                    onError={() => handleImageError(item.id)}
+                                    onError={() => setImageErrors((prev) => ({ ...prev, [item.id]: true }))}
                                   />
                                 ) : (
                                   <div className="w-10 h-10 bg-gradient-to-br from-orange-200 to-pink-200 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -1288,27 +1250,25 @@ Gostaria de confirmar este pedido! 😋`
                         <div className="flex justify-between text-gray-600">
                           <span>Entrega:</span>
                           {(() => {
-                            const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood);
+                            const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
                             return (
                               <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
                                 {taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}
                               </span>
-                            );
+                            )
                           })()}
                         </div>
                         {(() => {
-                          const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood);
-                          const totalComFrete = getTotalPrice() + taxaEntrega;
+                          const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
+                          const totalComFrete = getTotalPrice() + taxaEntrega
                           return (
                             <div className="border-t border-gray-200 pt-3">
                               <div className="flex justify-between text-xl font-bold text-gray-800">
                                 <span>Total:</span>
-                                <span className="text-pink-600">
-                                  R$ {totalComFrete.toFixed(2)}
-                                </span>
+                                <span className="text-pink-600">R$ {totalComFrete.toFixed(2)}</span>
                               </div>
                             </div>
-                          );
+                          )
                         })()}
                       </div>
 
@@ -1342,17 +1302,18 @@ Gostaria de confirmar este pedido! 😋`
   )
 }
 
-// Componente do Card do Produto
 function ProductCard({
   product,
   onAddToCart,
   imageErrors,
   setImageErrors,
+  imageUrlMap,
 }: {
   product: ProductWithDefaults
   onAddToCart: (product: ProductWithDefaults) => void
   imageErrors: { [key: number]: boolean }
   setImageErrors: (errors: { [key: number]: boolean }) => void
+  imageUrlMap: Record<string, string>
 }) {
   return (
     <motion.div whileHover={{ y: -8, scale: 1.02 }} className="group">
@@ -1360,10 +1321,11 @@ function ProductCard({
         <div className="relative">
           {!imageErrors[product.id] ? (
             <Image
-              src={`/images/${product.caminho}`}
+              src={imageUrlMap[product.caminho] || `/images/${product.caminho}`}
               alt={formatProductName(product.nome_produto)}
               width={400}
               height={400}
+              unoptimized
               className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
               onError={() => setImageErrors({ ...imageErrors, [product.id]: true })}
             />
@@ -1378,20 +1340,17 @@ function ProductCard({
             </div>
           )}
 
-          {/* Badges */}
           <div className="absolute top-3 left-3 flex flex-col space-y-2">
             {product.isNew && <Badge className="bg-green-500 text-white font-semibold">NOVO</Badge>}
             {product.isBestSeller && <Badge className="bg-orange-500 text-white font-semibold">MAIS VENDIDO</Badge>}
           </div>
 
-          {/* Discount Badge */}
           {product.originalPrice > product.price && (
             <Badge className="absolute top-3 right-3 bg-red-500 text-white font-bold">
               -{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
             </Badge>
           )}
 
-          {/* Favorite Button */}
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
@@ -1408,8 +1367,6 @@ function ProductCard({
             </Badge>
             <div className="flex items-center space-x-1">
               <Star className="w-4 h-4 text-yellow-400 fill-current" />
-              {/* <span className="text-sm font-medium text-gray-600">{product.rating.toFixed(1)}</span> */}
-              {/* <span className="text-xs text-gray-400">({product.reviews})</span> */}
             </div>
           </div>
 
@@ -1426,7 +1383,6 @@ function ProductCard({
                   <span className="text-sm text-gray-400 line-through">R$ {product.originalPrice.toFixed(2)}</span>
                 )}
               </div>
-             
             </div>
 
             <motion.button
