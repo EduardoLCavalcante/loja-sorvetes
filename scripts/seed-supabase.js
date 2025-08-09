@@ -15,9 +15,9 @@
  *  - Then run this script
  */
 
-import fs from "node:fs"
-import path from "node:path"
-import crypto from "node:crypto"
+import fs from "fs"
+import path from "path"
+import crypto from "crypto"
 import { createClient } from "@supabase/supabase-js"
 
 const SUPABASE_URL = process.env.SUPABASE_URL
