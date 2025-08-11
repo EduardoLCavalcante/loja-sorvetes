@@ -299,7 +299,7 @@ ${deliveryInfo.paymentMethod === "Dinheiro" ? `💰 *TROCO PARA:* R$ ${deliveryI
 Obrigado pela preferência! 😊`
 
     const encodedMessage = encodeURIComponent(message)
-    const whatsappUrl = `https://wa.me/5588999999999?text=${encodedMessage}`
+    const whatsappUrl = `https://wa.me/5588996867186?text=${encodedMessage}`
     window.open(whatsappUrl, "_blank")
   }
 
