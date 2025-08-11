@@ -1,35 +1,45 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useState, useEffect, useMemo } from "react"
+import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
-import { ShoppingCart, Plus, Minus, X, Search, Star, MapPin, Clock, Phone } from "lucide-react"
+import { useCart } from "./context/CartContext"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { useCart } from "./context/CartContext"
-import Image from "next/image"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
+import { Search, ShoppingCart, Plus, Minus, X, Star, Clock, MapPin, Phone } from "lucide-react"
 
+// Tipos
 type ProductRecord = {
   id: number
   nome_produto: string
-  nome_exibicao?: string | null
-  descricao: string | null
+  descricao?: string | null
   price: number
-  original_price: number | null
+  original_price?: number | null
   categoria: string[]
   caminho: string
-  is_new: boolean
-  is_best_seller: boolean
-  image_url: string | null
+  is_new?: boolean
+  is_best_seller?: boolean
+  image_url?: string | null
+  stock: number // Adicionado campo stock
 }
 
-type ProductWithDefaults = ProductRecord & {
+type ProductWithDefaults = {
+  id: number
+  nome_produto: string
+  nome_exibicao?: string
+  descricao?: string | null
+  price: number
   originalPrice: number
+  categoria: string[]
+  caminho: string
   isNew: boolean
   isBestSeller: boolean
+  image_url?: string | null
+  stock: number // Adicionado campo stock
 }
 
 const formatProductName = (name: string) =>
@@ -138,7 +148,8 @@ export default function DliceEcommerce() {
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({})
   const [productModal, setProductModal] = useState<ProductWithDefaults | null>(null)
   const [modalImageError, setModalImageError] = useState(false)
-  const mobileModalView = "max-sm:max-h-[70%] max-sm:max-w-[90vw] max-sm:my-auto max-sm:mx-auto max-sm:px-4 max-sm:rounded-2xl"
+  const mobileModalView =
+    "max-sm:max-h-[70%] max-sm:max-w-[90vw] max-sm:my-auto max-sm:mx-auto max-sm:px-4 max-sm:rounded-2xl"
   // Load products from Supabase API route
   useEffect(() => {
     async function load() {
@@ -161,6 +172,7 @@ export default function DliceEcommerce() {
             originalPrice: original,
             isNew: !!p.is_new,
             isBestSeller: !!p.is_best_seller,
+            stock: p.stock || 0, // Mapeando campo stock da API
           }
         })
 
@@ -220,6 +232,8 @@ export default function DliceEcommerce() {
   }, [categories, products, searchTerm])
 
   const handleAddToCart = (product: ProductWithDefaults) => {
+    if (product.stock <= 0) return
+
     const safeProduct = {
       id: product.id,
       nome_produto: product.nome_produto,
@@ -238,6 +252,8 @@ export default function DliceEcommerce() {
   }
 
   const openProductModal = (p: ProductWithDefaults) => {
+    if (p.stock <= 0) return
+
     setProductModal(p)
     setModalImageError(false)
   }
@@ -547,7 +563,7 @@ Gostaria de confirmar este pedido! 😋`
           </motion.div>
         )}
       </AnimatePresence>
-            {/* Checkout Modal */}
+      {/* Checkout Modal */}
       <AnimatePresence>
         {isCheckoutOpen && (
           <>
@@ -950,6 +966,7 @@ Gostaria de confirmar este pedido! 😋`
                       src={
                         productModal.image_url ||
                         "/placeholder.svg?height=600&width=600&query=imagem%20de%20produto%20sorvete" ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
                       alt={productModal.nome_exibicao || formatProductName(productModal.nome_produto)}
@@ -1027,11 +1044,18 @@ function ProductCard({
   setImageErrors: (errors: { [key: number]: boolean }) => void
 }) {
   const displayName = product.nome_exibicao || formatProductName(product.nome_produto)
+  const isOutOfStock = product.stock <= 0 // Verificar se está fora de estoque
+
   return (
     <motion.div whileHover={{ y: -8, scale: 1.02 }} className="group">
-      <Card className="overflow-hidden border-0 shadow-xl hover:shadow-2xl transition-all duration-500 bg-white/90 backdrop-blur-sm group-hover:bg-white h-full">
+      <Card
+        className={`overflow-hidden border-0 shadow-xl hover:shadow-2xl transition-all duration-500 bg-white/90 backdrop-blur-sm group-hover:bg-white h-full ${isOutOfStock ? "opacity-60 grayscale" : ""}`}
+      >
         {/* Área clicável para abrir o modal (imagem) */}
-        <div className="relative cursor-pointer" onClick={() => onOpen(product)}>
+        <div
+          className={`relative ${!isOutOfStock ? "cursor-pointer" : "cursor-not-allowed"}`}
+          onClick={() => !isOutOfStock && onOpen(product)}
+        >
           {!imageErrors[product.id] ? (
             <Image
               src={product.image_url || "/placeholder.svg?height=400&width=400&query=produto%20sorvete"}
@@ -1039,11 +1063,13 @@ function ProductCard({
               width={400}
               height={400}
               unoptimized
-              className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
+              className={`w-full h-64 object-cover transition-transform duration-500 ${!isOutOfStock ? "group-hover:scale-110" : ""}`}
               onError={() => setImageErrors({ ...imageErrors, [product.id]: true })}
             />
           ) : (
-            <div className="w-full h-64 bg-gradient-to-br from-orange-100 via-pink-100 to-amber-100 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+            <div
+              className={`w-full h-64 bg-gradient-to-br from-orange-100 via-pink-100 to-amber-100 flex items-center justify-center transition-transform duration-500 ${!isOutOfStock ? "group-hover:scale-110" : ""}`}
+            >
               <div className="text-center">
                 <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-pink-300 to-orange-300 rounded-full flex items-center justify-center">
                   <span className="text-3xl">🍦</span>
@@ -1055,12 +1081,18 @@ function ProductCard({
 
           {/* Badges */}
           <div className="absolute top-3 left-3 flex flex-col space-y-2">
-            {product.isNew && <Badge className="bg-green-500 text-white font-semibold">NOVO</Badge>}
-            {product.isBestSeller && <Badge className="bg-orange-500 text-white font-semibold">MAIS VENDIDO</Badge>}
+            {isOutOfStock ? (
+              <Badge className="bg-gray-500 text-white font-semibold">FORA DE ESTOQUE</Badge>
+            ) : (
+              <>
+                {product.isNew && <Badge className="bg-green-500 text-white font-semibold">NOVO</Badge>}
+                {product.isBestSeller && <Badge className="bg-orange-500 text-white font-semibold">MAIS VENDIDO</Badge>}
+              </>
+            )}
           </div>
 
           {/* Discount Badge */}
-          {product.originalPrice > product.price && (
+          {!isOutOfStock && product.originalPrice > product.price && (
             <Badge className="absolute top-3 right-3 bg-red-500 text-white font-bold">
               -{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
             </Badge>
@@ -1072,14 +1104,21 @@ function ProductCard({
             <Badge variant="outline" className="text-xs font-medium border-orange-200 text-pink-600">
               {formatCategoryName(product.categoria)}
             </Badge>
-            <div className="flex items-center space-x-1">
-              <Star className="w-4 h-4 text-yellow-400 fill-current" />
-            </div>
+            {!isOutOfStock && (
+              <div className="flex items-center space-x-1">
+                <Star className="w-4 h-4 text-yellow-400 fill-current" />
+              </div>
+            )}
           </div>
 
           {/* Título/descrição também abrem o modal */}
-          <div className="cursor-pointer" onClick={() => onOpen(product)}>
-            <h3 className="text-lg font-bold mb-2 text-gray-800 group-hover:text-pink-600 transition-colors">
+          <div
+            className={`${!isOutOfStock ? "cursor-pointer" : "cursor-not-allowed"}`}
+            onClick={() => !isOutOfStock && onOpen(product)}
+          >
+            <h3
+              className={`text-lg font-bold mb-2 text-gray-800 transition-colors ${!isOutOfStock ? "group-hover:text-pink-600" : ""}`}
+            >
               {displayName}
             </h3>
             <p className="text-gray-600 mb-4 text-sm leading-relaxed line-clamp-2 flex-grow">
@@ -1091,26 +1130,30 @@ function ProductCard({
             <div className="flex flex-col">
               <div className="flex items-center space-x-2">
                 <span className="text-2xl font-bold text-pink-600">R$ {product.price.toFixed(2)}</span>
-                {product.originalPrice > product.price && (
+                {!isOutOfStock && product.originalPrice > product.price && (
                   <span className="text-sm text-gray-400 line-through">R$ {product.originalPrice.toFixed(2)}</span>
                 )}
               </div>
             </div>
 
-
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={!isOutOfStock ? { scale: 1.05 } : {}}
+              whileTap={!isOutOfStock ? { scale: 0.95 } : {}}
               data-product-id={product.id}
-              onClick={(e:any) => {
+              onClick={(e: any) => {
                 e.stopPropagation()
-                onAddToCart(product)
+                if (!isOutOfStock) onAddToCart(product)
               }}
-              className="bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 hover:from-pink-600 hover:via-rose-600 hover:to-pink-700 text-white px-6 py-3 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl flex items-center space-x-2 font-semibold"
+              disabled={isOutOfStock}
+              className={`px-6 py-3 rounded-2xl transition-all duration-300 shadow-lg flex items-center space-x-2 font-semibold ${
+                isOutOfStock
+                  ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                  : "bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 hover:from-pink-600 hover:via-rose-600 hover:to-pink-700 text-white hover:shadow-xl"
+              }`}
             >
               <Plus className="w-4 h-4 max-sm:hidden" />
               <ShoppingCart className="w-4 h-4 sm:hidden" />
-              <span className="max-sm:hidden">Adicionar</span>
+              <span className="max-sm:hidden">{isOutOfStock ? "Indisponível" : "Adicionar"}</span>
             </motion.button>
           </div>
         </CardContent>

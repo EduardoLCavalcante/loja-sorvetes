@@ -99,6 +99,7 @@ export async function GET() {
         is_new: !!p?.is_new,
         is_best_seller: !!p?.is_best_seller,
         image_url: imageUrl,
+        stock: Number.isFinite(Number(p?.stock)) ? Number(p.stock) : 0,
       }
     })
 
