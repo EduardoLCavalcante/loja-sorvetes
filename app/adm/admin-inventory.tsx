@@ -41,6 +41,7 @@ export default function AdminInventory() {
   const [pBest, setPBest] = useState(false)
   const [pImage, setPImage] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [pSlug, setPSlug] = useState("") // Adicionei o estado para o slug
 
   const [savingMap, setSavingMap] = useState<Record<number, boolean>>({})
   const [deletingMap, setDeletingMap] = useState<Record<number, boolean>>({})
@@ -48,7 +49,10 @@ export default function AdminInventory() {
   const authHeader = async () => {
     const { data } = await supabase.auth.getSession()
     const token = data.session?.access_token
-    return token ? { Authorization: `Bearer ${token}` } : {}
+    if (token) {
+      return { Authorization: `Bearer ${token}` }
+    }
+    return undefined
   }
 
   const safeJson = async (res: Response) => {
@@ -124,6 +128,7 @@ export default function AdminInventory() {
         ),
       )
       fd.append("image", pImage)
+      fd.append("slug", pSlug.trim()) // Enviando o slug
       const res = await fetch("/api/admin/products", { method: "POST", headers, body: fd })
       const json = await safeJson(res)
       if (!res.ok) throw new Error(json?.error || "Falha ao adicionar produto.")
@@ -200,6 +205,18 @@ export default function AdminInventory() {
       setDeletingMap((m) => ({ ...m, [id]: false }))
     }
   }
+
+  // Opcional: Gere o slug automaticamente ao digitar o nome
+  useEffect(() => {
+    setPSlug(
+      pName
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")
+    )
+  }, [pName])
 
   return (
     <section className="space-y-6">
