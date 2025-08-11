@@ -144,6 +144,7 @@ export default function DliceEcommerce() {
     neighborhood: "",
     city: "",
     paymentMethod: "",
+    deliveryType: "entrega", // Adicionado campo para tipo de entrega
   })
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({})
   const [productModal, setProductModal] = useState<ProductWithDefaults | null>(null)
@@ -259,38 +260,43 @@ export default function DliceEcommerce() {
   }
 
   const generateWhatsAppMessage = () => {
-    const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
-    const totalComFrete = getTotalPrice() + taxaEntrega
-
     const items = cart
       .map(
         (item) =>
-          `• ${formatProductName(item.nome_produto)} (${item.categoria}) (${item.quantity}x) - R$ ${(item.price * item.quantity).toFixed(2)}`,
+          `• ${formatProductName(item.nome_produto)} (${item.quantity}x) - R$ ${(item.price * item.quantity).toFixed(2)}`,
       )
       .join("\n")
 
-    const message = `🍦 *Pedido D'lice Sorvetes* 🍦
+    const subtotal = getTotalPrice()
+    const taxaEntrega = deliveryInfo.deliveryType === "retirada" ? 0 : getTaxaEntrega(deliveryInfo.neighborhood) // Taxa zero para retirada
+    const total = subtotal + taxaEntrega
 
-*Produtos Selecionados:*
+    const deliveryText =
+      deliveryInfo.deliveryType === "retirada"
+        ? "🏪 *RETIRADA NA LOJA*\nR. Idelfonso Solon de Freitas, 558 - Popular, Limoeiro do Norte - CE"
+        : `📍 *ENDEREÇO DE ENTREGA:*\n${deliveryInfo.address}${deliveryInfo.complement ? `, ${deliveryInfo.complement}` : ""}\n${deliveryInfo.neighborhood}, ${deliveryInfo.city}`
+
+    const message = `🍦 *PEDIDO MARENI SORVETES* 🍦
+
+👤 *CLIENTE:* ${deliveryInfo.name}
+📱 *TELEFONE:* ${deliveryInfo.phone}
+
+${deliveryText}
+
+🛒 *ITENS DO PEDIDO:*
 ${items}
 
-*Subtotal: R$ ${getTotalPrice().toFixed(2)}*
-*Entrega: ${taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}*
-*Valor Total: R$ ${totalComFrete.toFixed(2)}*
+💰 *RESUMO FINANCEIRO:*
+Subtotal: R$ ${subtotal.toFixed(2)}
+${deliveryInfo.deliveryType === "retirada" ? "Entrega: Gratuita (Retirada)" : `Entrega: R$ ${taxaEntrega.toFixed(2)}`}
+*Total: R$ ${total.toFixed(2)}*
 
-*Dados para Entrega:*
-👤 Nome: ${deliveryInfo.name}
-📞 Telefone: ${deliveryInfo.phone}
-🏠 Endereço: ${deliveryInfo.address}
-${deliveryInfo.complement ? `📍 Complemento: ${deliveryInfo.complement}` : ""}
-🏘️ Bairro: ${deliveryInfo.neighborhood}
-🏙️ Cidade: ${deliveryInfo.city}
-💳 Forma de Pagamento: ${deliveryInfo.paymentMethod || "Não informado"}
+💳 *FORMA DE PAGAMENTO:* ${deliveryInfo.paymentMethod}
 
-Gostaria de confirmar este pedido! 😋`
+Obrigado pela preferência! 😊`
 
     const encodedMessage = encodeURIComponent(message)
-    const whatsappUrl = `https://wa.me/5588996867186?text=${encodedMessage}`
+    const whatsappUrl = `https://wa.me/5588999999999?text=${encodedMessage}`
     window.open(whatsappUrl, "_blank")
   }
 
@@ -699,89 +705,91 @@ Gostaria de confirmar este pedido! 😋`
                           <option value="Cartão(Crédito)">Cartão (Crédito)</option>
                         </select>
                       </div>
-                    </div>
 
-                    {/* Resumo do pedido */}
-                    <div className="space-y-6">
-                      <h3 className="text-lg font-semibold text-gray-800 border-b border-orange-100 pb-2">
-                        Resumo do Pedido
-                      </h3>
-
-                      <div className="bg-gradient-to-r from-orange-50 to-pink-50 p-4 md:p-6 rounded-2xl border border-orange-100 max-h-80 overflow-y-auto">
-                        <div className="space-y-3">
-                          {cart.map((item) => (
-                            <div key={item.id} className="flex justify-between items-center py-2">
-                              <div className="flex items-center space-x-3">
-                                {!imageErrors[item.id] ? (
-                                  <Image
-                                    src={
-                                      item.image_url || "/placeholder.svg?height=40&width=40&query=miniatura%20sorvete"
-                                    }
-                                    alt={formatProductName(item.nome_produto)}
-                                    width={40}
-                                    height={40}
-                                    unoptimized
-                                    className="w-10 h-10 object-cover rounded-lg flex-shrink-0"
-                                    onError={() => setImageErrors((prev) => ({ ...prev, [item.id]: true }))}
-                                  />
-                                ) : (
-                                  <div className="w-10 h-10 bg-gradient-to-br from-orange-200 to-pink-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <span className="text-sm">🍦</span>
-                                  </div>
-                                )}
-                                <div className="min-w-0 flex-1">
-                                  <p className="font-medium text-gray-800 text-sm truncate">
-                                    {formatProductName(item.nome_produto)}
-                                  </p>
-                                  <p className="text-gray-500 text-xs">Qtd: {item.quantity}</p>
-                                </div>
-                              </div>
-                              <span className="font-semibold text-gray-800 text-sm flex-shrink-0">
-                                R$ {(item.price * item.quantity).toFixed(2)}
-                              </span>
-                            </div>
-                          ))}
+                      <div>
+                        <Label className="text-sm font-semibold text-gray-700">Tipo de Entrega</Label>
+                        <div className="mt-2 space-y-2">
+                          <label className="flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              name="deliveryType"
+                              value="entrega"
+                              checked={deliveryInfo.deliveryType !== "retirada"}
+                              onChange={(e) => setDeliveryInfo({ ...deliveryInfo, deliveryType: "entrega" })}
+                              className="text-pink-500"
+                            />
+                            <span>Entrega no endereço</span>
+                          </label>
+                          <label className="flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              name="deliveryType"
+                              value="retirada"
+                              checked={deliveryInfo.deliveryType === "retirada"}
+                              onChange={(e) => setDeliveryInfo({ ...deliveryInfo, deliveryType: "retirada" })}
+                              className="text-pink-500"
+                            />
+                            <span>Retirada na loja</span>
+                          </label>
                         </div>
+
+                        {deliveryInfo.deliveryType === "retirada" && (
+                          <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                            <h4 className="font-semibold text-blue-800 mb-2">Localização da Loja</h4>
+                            <p className="text-sm text-blue-700 mb-3">
+                              R. Idelfonso Solon de Freitas, 558 - Popular, Limoeiro do Norte - CE, 62930-000
+                            </p>
+                            <div className="rounded-lg overflow-hidden">
+                              <iframe
+                                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3973.602128137413!2d-38.09886592408934!3d-5.167526552187838!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x7bbd1b7be46e06b%3A0x7e6c5b85cf1d-5.167526552187838!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x7bbd1b7be46e06b%3A0x7e6c5b85cf1b5b47!2sR.%20Idelfonso%20Solon%20de%20Freitas%2C%20558%20-%20Popular%2C%20Limoeiro%20do%20Norte%20-%20CE%2C%2062930-000!5e0!3m2!1spt-BR!2sbr!4v1754934998847!5m2!1spt-BR!2sbr"
+                                width="100%"
+                                height="200"
+                                style={{ border: 0 }}
+                                allowFullScreen
+                                loading="lazy"
+                                referrerPolicy="no-referrer-when-downgrade"
+                                className="w-full"
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="space-y-3 p-4 bg-gray-50 rounded-xl">
-                        <div className="flex justify-between text-gray-600">
-                          <span>Subtotal:</span>
-                          <span>R$ {getTotalPrice().toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-gray-600">
-                          <span>Entrega:</span>
-                          {(() => {
-                            const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
-                            return (
-                              <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
-                                {taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}
-                              </span>
-                            )
-                          })()}
-                        </div>
+                      <div className="flex justify-between text-gray-600">
+                        <span>Entrega:</span>
                         {(() => {
+                          if (deliveryInfo.deliveryType === "retirada") {
+                            return <span className="text-green-600 font-semibold">Gratuita (Retirada)</span>
+                          }
                           const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
-                          const totalComFrete = getTotalPrice() + taxaEntrega
                           return (
-                            <div className="border-t border-gray-200 pt-3">
-                              <div className="flex justify-between text-xl font-bold text-gray-800">
-                                <span>Total:</span>
-                                <span className="text-pink-600">R$ {totalComFrete.toFixed(2)}</span>
-                              </div>
-                            </div>
+                            <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
+                              {taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}
+                            </span>
                           )
                         })()}
                       </div>
+                      {(() => {
+                        const taxaEntrega =
+                          deliveryInfo.deliveryType === "retirada" ? 0 : getTaxaEntrega(deliveryInfo.neighborhood)
+                        const totalComFrete = getTotalPrice() + taxaEntrega
+                        return (
+                          <div className="border-t border-gray-200 pt-3">
+                            <div className="flex justify-between text-xl font-bold text-gray-800">
+                              <span>Total:</span>
+                              <span className="text-pink-600">R$ {totalComFrete.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        )
+                      })()}
 
                       <Button
                         onClick={generateWhatsAppMessage}
                         disabled={
                           !deliveryInfo.name ||
                           !deliveryInfo.phone ||
-                          !deliveryInfo.address ||
-                          !deliveryInfo.neighborhood ||
-                          !deliveryInfo.city
+                          (deliveryInfo.deliveryType !== "retirada" &&
+                            (!deliveryInfo.address || !deliveryInfo.neighborhood || !deliveryInfo.city))
                         }
                         className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl text-lg font-semibold flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -966,6 +974,7 @@ Gostaria de confirmar este pedido! 😋`
                       src={
                         productModal.image_url ||
                         "/placeholder.svg?height=600&width=600&query=imagem%20de%20produto%20sorvete" ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg"
                       }
