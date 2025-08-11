@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Search, ShoppingCart, Plus, Minus, X, Star, Clock, MapPin, Phone } from "lucide-react"
+import Mapa from "@/components/Mapa/Mapa"
 
 // Tipos
 type ProductRecord = {
@@ -739,18 +740,7 @@ Obrigado pela preferência! 😊`
                             <p className="text-sm text-blue-700 mb-3">
                               R. Idelfonso Solon de Freitas, 558 - Popular, Limoeiro do Norte - CE, 62930-000
                             </p>
-                            <div className="rounded-lg overflow-hidden">
-                              <iframe
-                                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3973.602128137413!2d-38.09886592408934!3d-5.167526552187838!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x7bbd1b7be46e06b%3A0x7e6c5b85cf1d-5.167526552187838!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x7bbd1b7be46e06b%3A0x7e6c5b85cf1b5b47!2sR.%20Idelfonso%20Solon%20de%20Freitas%2C%20558%20-%20Popular%2C%20Limoeiro%20do%20Norte%20-%20CE%2C%2062930-000!5e0!3m2!1spt-BR!2sbr!4v1754934998847!5m2!1spt-BR!2sbr"
-                                width="100%"
-                                height="200"
-                                style={{ border: 0 }}
-                                allowFullScreen
-                                loading="lazy"
-                                referrerPolicy="no-referrer-when-downgrade"
-                                className="w-full"
-                              />
-                            </div>
+                            <Mapa/>
                           </div>
                         )}
                       </div>

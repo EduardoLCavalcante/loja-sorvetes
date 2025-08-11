@@ -94,7 +94,9 @@ export default function AdminInventory() {
       setCategoriesLoading(true)
       const response = await fetch("/api/categories")
       if (!response.ok) throw new Error("Failed to fetch categories")
+
       const data = await response.json()
+      console.warn("Fetched categories:", data)
       setCategories(data)
     } catch (error) {
       console.error("Error fetching categories:", error)
@@ -106,6 +108,7 @@ export default function AdminInventory() {
   useEffect(() => {
     fetchProducts()
     fetchCategories()
+    console.warn("AdminInventory mounted")
   }, [])
 
   const filtered = useMemo(() => {
