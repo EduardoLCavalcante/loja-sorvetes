@@ -146,6 +146,7 @@ export default function DliceEcommerce() {
     city: "",
     paymentMethod: "",
     deliveryType: "entrega", // Adicionado campo para tipo de entrega
+    changeFor: "",
   })
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({})
   const [productModal, setProductModal] = useState<ProductWithDefaults | null>(null)
@@ -293,6 +294,7 @@ ${deliveryInfo.deliveryType === "retirada" ? "Entrega: Gratuita (Retirada)" : `E
 *Total: R$ ${total.toFixed(2)}*
 
 💳 *FORMA DE PAGAMENTO:* ${deliveryInfo.paymentMethod}
+${deliveryInfo.paymentMethod === "Dinheiro" ? `💰 *TROCO PARA:* R$ ${deliveryInfo.changeFor}` : ""}
 
 Obrigado pela preferência! 😊`
 
@@ -599,7 +601,7 @@ Obrigado pela preferência! 😊`
                     </Button>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="">
                     {/* Formulário de dados */}
                     <div className="space-y-6">
                       <h3 className="text-lg font-semibold text-gray-800 border-b border-orange-100 pb-2">
@@ -706,6 +708,20 @@ Obrigado pela preferência! 😊`
                           <option value="Cartão(Crédito)">Cartão (Crédito)</option>
                         </select>
                       </div>
+                      {deliveryInfo.paymentMethod === "Dinheiro" && (
+                        <div>
+                          <Label htmlFor="changeFor" className="text-sm font-semibold text-gray-700">
+                            Troco Para:
+                          </Label>
+                          <Input
+                            id="changeFor"
+                            value={deliveryInfo.changeFor}
+                            onChange={(e) => setDeliveryInfo({ ...deliveryInfo, changeFor: e.target.value })}
+                            placeholder="R$ 50,00"
+                            className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
+                          />
+                        </div>
+                      )}
 
                       <div>
                         <Label className="text-sm font-semibold text-gray-700">Tipo de Entrega</Label>
@@ -735,7 +751,7 @@ Obrigado pela preferência! 😊`
                         </div>
 
                         {deliveryInfo.deliveryType === "retirada" && (
-                          <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                          <div className="mt-4 p-4 bg-blue-50 rounded-xl border  border-blue-200">
                             <h4 className="font-semibold text-blue-800 mb-2">Localização da Loja</h4>
                             <p className="text-sm text-blue-700 mb-3">
                               R. Idelfonso Solon de Freitas, 558 - Popular, Limoeiro do Norte - CE, 62930-000
@@ -779,7 +795,8 @@ Obrigado pela preferência! 😊`
                           !deliveryInfo.name ||
                           !deliveryInfo.phone ||
                           (deliveryInfo.deliveryType !== "retirada" &&
-                            (!deliveryInfo.address || !deliveryInfo.neighborhood || !deliveryInfo.city))
+                          (!deliveryInfo.address || !deliveryInfo.neighborhood || !deliveryInfo.city)) ||
+                          (deliveryInfo.paymentMethod === "Dinheiro" && !deliveryInfo.changeFor)
                         }
                         className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl text-lg font-semibold flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
