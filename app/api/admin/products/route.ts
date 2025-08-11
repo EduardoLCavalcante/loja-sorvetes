@@ -63,13 +63,16 @@ function normalizeRow(url: string, p: any) {
   }
   const price = parsePrice(p?.price) ?? 0
   const original = parsePrice(p?.original_price) ?? price
+
+  const categorias = (p.product_categories || []).map((pc: any) => pc.categories?.name).filter(Boolean)
+
   return {
     id: p.id,
     nome_produto: p.nome_produto,
     descricao: p.descricao ?? null,
     price: Math.round(price * 100) / 100,
     original_price: Math.round(original * 100) / 100,
-    categoria: Array.isArray(p?.categoria) ? p.categoria : [],
+    categoria: categorias,
     caminho: p.caminho,
     image_url: imageUrl,
     stock: Number.isFinite(Number(p?.stock)) ? Number(p.stock) : 0,
@@ -88,7 +91,20 @@ export async function GET(req: Request) {
     if (!service) return NextResponse.json({ error: "Service key missing." }, { status: 500, headers: noStoreHeaders })
     const supabase = createClient(url, service)
 
-    const { data, error } = await supabase.from("products").select("*").order("id", { ascending: true })
+    const { data, error } = await supabase
+      .from("products")
+      .select(`
+        *,
+        product_categories(
+          categories(
+            id,
+            name,
+            slug
+          )
+        )
+      `)
+      .order("id", { ascending: true })
+
     if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: noStoreHeaders })
 
     return NextResponse.json(
@@ -133,11 +149,11 @@ export async function POST(req: Request) {
     const is_new = String(isNewRaw || "false") === "true"
     const is_best_seller = String(isBestRaw || "false") === "true"
 
-    let categoria: string[] = []
+    let categorias: string[] = []
     try {
       if (typeof categoriaRaw === "string") {
         const v = JSON.parse(categoriaRaw)
-        if (Array.isArray(v)) categoria = v
+        if (Array.isArray(v)) categorias = v
       }
     } catch {}
 
@@ -172,7 +188,6 @@ export async function POST(req: Request) {
       descricao,
       price,
       original_price,
-      categoria,
       caminho: publicUrl,
       stock,
       is_new,
@@ -182,7 +197,50 @@ export async function POST(req: Request) {
     const { data: inserted, error: insErr } = await supabase.from("products").insert(payload).select("*").single()
     if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500, headers: noStoreHeaders })
 
-    return NextResponse.json({ product: normalizeRow(url, inserted) }, { status: 201, headers: noStoreHeaders })
+    if (categorias.length > 0) {
+      // Primeiro, buscar ou criar as categorias
+      for (const catName of categorias) {
+        const { error: catErr } = await supabase
+          .from("categories")
+          .upsert({ name: catName, slug: slugify(catName) }, { onConflict: "name" })
+        if (catErr) console.warn("Erro ao criar categoria:", catErr.message)
+      }
+
+      // Buscar os IDs das categorias
+      const { data: categoryIds } = await supabase.from("categories").select("id, name").in("name", categorias)
+
+      if (categoryIds && categoryIds.length > 0) {
+        const relations = categoryIds.map((cat) => ({
+          product_id: inserted.id,
+          category_id: cat.id,
+        }))
+
+        const { error: relErr } = await supabase.from("product_categories").insert(relations)
+
+        if (relErr) console.warn("Erro ao inserir relações de categoria:", relErr.message)
+      }
+    }
+
+    // Buscar o produto com suas categorias para retornar
+    const { data: productWithCategories } = await supabase
+      .from("products")
+      .select(`
+        *,
+        product_categories(
+          categories(
+            id,
+            name,
+            slug
+          )
+        )
+      `)
+      .eq("id", inserted.id)
+      .single()
+
+    return NextResponse.json(
+      { product: normalizeRow(url, productWithCategories || inserted) },
+      { status: 201, headers: noStoreHeaders },
+    )
   } catch (e: any) {
     console.error("POST /api/admin/products", e?.message || e)
     return NextResponse.json({ error: "Internal error" }, { status: 500, headers: noStoreHeaders })
@@ -202,6 +260,7 @@ export async function PATCH(req: Request) {
     const contentType = req.headers.get("content-type") || ""
     let id: number | null = null
     const update: any = {}
+    let categorias: string[] | null = null
 
     if (contentType.includes("application/json")) {
       const body = (await req.json().catch(() => null)) as any
@@ -213,7 +272,7 @@ export async function PATCH(req: Request) {
       if (typeof body.descricao === "string") update.descricao = body.descricao.trim()
       if (body.price != null) update.price = parsePrice(body.price) ?? 0
       if (body.original_price != null) update.original_price = parsePrice(body.original_price) ?? update.price
-      if (Array.isArray(body.categoria)) update.categoria = body.categoria
+      if (Array.isArray(body.categoria)) categorias = body.categoria
       if (typeof body.stock === "number") update.stock = Math.max(0, Math.floor(body.stock))
       if (typeof body.is_new === "boolean") update.is_new = body.is_new
       if (typeof body.is_best_seller === "boolean") update.is_best_seller = body.is_best_seller
@@ -244,7 +303,7 @@ export async function PATCH(req: Request) {
       try {
         if (typeof categoriaRaw === "string") {
           const v = JSON.parse(categoriaRaw)
-          if (Array.isArray(v)) update.categoria = v
+          if (Array.isArray(v)) categorias = v
         }
       } catch {}
 
@@ -285,7 +344,52 @@ export async function PATCH(req: Request) {
     const { data, error } = await supabase.from("products").update(update).eq("id", id!).select("*").single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: noStoreHeaders })
 
-    return NextResponse.json({ product: normalizeRow(url, data) }, { headers: noStoreHeaders })
+    if (categorias !== null) {
+      // Remover relações existentes
+      await supabase.from("product_categories").delete().eq("product_id", id!)
+
+      if (categorias.length > 0) {
+        // Criar/buscar categorias
+        for (const catName of categorias) {
+          const { error: catErr } = await supabase
+            .from("categories")
+            .upsert({ name: catName, slug: slugify(catName) }, { onConflict: "name" })
+          if (catErr) console.warn("Erro ao criar categoria:", catErr.message)
+        }
+
+        // Buscar IDs das categorias
+        const { data: categoryIds } = await supabase.from("categories").select("id, name").in("name", categorias)
+
+        if (categoryIds && categoryIds.length > 0) {
+          const relations = categoryIds.map((cat) => ({
+            product_id: id!,
+            category_id: cat.id,
+          }))
+
+          const { error: relErr } = await supabase.from("product_categories").insert(relations)
+
+          if (relErr) console.warn("Erro ao inserir relações de categoria:", relErr.message)
+        }
+      }
+    }
+
+    // Buscar o produto com suas categorias para retornar
+    const { data: productWithCategories } = await supabase
+      .from("products")
+      .select(`
+        *,
+        product_categories(
+          categories(
+            id,
+            name,
+            slug
+          )
+        )
+      `)
+      .eq("id", id!)
+      .single()
+
+    return NextResponse.json({ product: normalizeRow(url, productWithCategories || data) }, { headers: noStoreHeaders })
   } catch (e: any) {
     console.error("PATCH /api/admin/products", e?.message || e)
     return NextResponse.json({ error: "Internal error" }, { status: 500, headers: noStoreHeaders })
@@ -328,6 +432,8 @@ export async function DELETE(req: Request) {
           .catch(() => undefined)
       }
     }
+
+    await supabase.from("product_categories").delete().eq("product_id", id!)
 
     const { error } = await supabase.from("products").delete().eq("id", id!)
     if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: noStoreHeaders })

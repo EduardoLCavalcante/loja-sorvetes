@@ -52,10 +52,18 @@ export async function GET() {
 
     const supabase = createClient(url, anon)
 
-    // Select tudo para tolerar diferenças de schema
     const { data: products, error: productsError } = await supabase
       .from("products")
-      .select("*")
+      .select(`
+        *,
+        product_categories!inner(
+          categories!inner(
+            id,
+            name,
+            slug
+          )
+        )
+      `)
       .order("price", { ascending: false })
 
     if (productsError) {
@@ -88,13 +96,15 @@ export async function GET() {
         imageUrl = p.caminho.startsWith("http") ? p.caminho : `${supabasePublicImagesBase}${encodeURI(p.caminho)}`
       }
 
+      const categorias = (p.product_categories || []).map((pc: any) => pc.categories?.name).filter(Boolean)
+
       return {
         id: p.id,
         nome_produto: p.nome_produto,
         descricao: p.descricao ?? null,
         price: priceVal,
         original_price: originalVal,
-        categoria: Array.isArray(p?.categoria) ? p.categoria : [],
+        categoria: categorias,
         caminho: p.caminho,
         is_new: !!p?.is_new,
         is_best_seller: !!p?.is_best_seller,
@@ -103,12 +113,9 @@ export async function GET() {
       }
     })
 
-    // Lista de categorias distintas
-    const catSet = new Set<string>()
-    for (const p of out) {
-      for (const c of p.categoria || []) if (c) catSet.add(c)
-    }
-    const categories = Array.from(catSet).sort((a, b) => a.localeCompare(b, "pt-BR"))
+    const { data: categoriesData } = await supabase.from("categories").select("name").order("name")
+
+    const categories = (categoriesData || []).map((c) => c.name).filter(Boolean)
 
     return NextResponse.json({ products: out, categories }, { headers: noStoreHeaders })
   } catch (err: any) {
