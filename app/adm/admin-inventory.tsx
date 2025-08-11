@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, RefreshCw, Trash2, SaveAll } from "lucide-react"
 
-type AdminProduct = {
+interface Product {
   id: number
   nome_produto: string
   descricao: string | null
@@ -23,39 +23,29 @@ type AdminProduct = {
   is_best_seller: boolean
 }
 
-type ProductRecord = AdminProduct
-
-const AVAILABLE_CATEGORIES = [
-  "Picolés",
-  "Sorvetes",
-  "Premium",
-  "Tradicional",
-  "Frutas",
-  "Chocolate",
-  "Cremoso",
-  "Diet",
-  "Zero Açúcar",
-  "Vegano",
-  "Infantil",
-  "Sazonal",
-]
+interface Category {
+  id: number
+  name: string
+  slug: string
+}
 
 export default function AdminInventory() {
   const supabase = getSupabaseBrowserClient()
-  const [products, setProducts] = useState<ProductRecord[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [creating, setCreating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [modifiedProducts, setModifiedProducts] = useState<Set<number>>(new Set())
   const [savingAll, setSavingAll] = useState(false)
 
-  // New product form
+  const [categories, setCategories] = useState<Category[]>([])
+  const [categoriesLoading, setCategoriesLoading] = useState(true)
+
+  const [creating, setCreating] = useState(false)
   const [pName, setPName] = useState("")
   const [pPrice, setPPrice] = useState("")
   const [pOriginal, setPOriginal] = useState("")
   const [pStock, setPStock] = useState(0)
   const [pDesc, setPDesc] = useState("")
-  const [pCategories, setPCategories] = useState("") // Keep for backward compatibility
   const [pSelectedCategories, setPSelectedCategories] = useState<string[]>([]) // Added state for selected categories
   const [pNew, setPNew] = useState(false)
   const [pBest, setPBest] = useState(false)
@@ -82,10 +72,10 @@ export default function AdminInventory() {
     }
   }
 
-  const loadProducts = async () => {
+  const fetchProducts = async () => {
     try {
       setLoading(true)
-      setError("")
+      setError(null)
       const headers = await authHeader()
       const res = await fetch("/api/admin/products", { cache: "no-store", headers })
       const json = await safeJson(res)
@@ -99,9 +89,23 @@ export default function AdminInventory() {
     }
   }
 
+  const fetchCategories = async () => {
+    try {
+      setCategoriesLoading(true)
+      const response = await fetch("/api/categories")
+      if (!response.ok) throw new Error("Failed to fetch categories")
+      const data = await response.json()
+      setCategories(data)
+    } catch (error) {
+      console.error("Error fetching categories:", error)
+    } finally {
+      setCategoriesLoading(false)
+    }
+  }
+
   useEffect(() => {
-    loadProducts()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchProducts()
+    fetchCategories()
   }, [])
 
   const filtered = useMemo(() => {
@@ -110,7 +114,7 @@ export default function AdminInventory() {
     return products.filter((p) => p.nome_produto.toLowerCase().includes(t))
   }, [products, pName])
 
-  const updateLocal = (id: number, patch: Partial<AdminProduct>) => {
+  const updateLocal = (id: number, patch: Partial<Product>) => {
     setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)))
     setModifiedProducts((prev) => new Set([...prev, id]))
   }
@@ -143,7 +147,7 @@ export default function AdminInventory() {
     }
 
     setCreating(true)
-    setError("")
+    setError(null)
 
     try {
       const formData = new FormData()
@@ -173,14 +177,13 @@ export default function AdminInventory() {
       setPOriginal("")
       setPStock(0)
       setPDesc("")
-      setPCategories("")
       setPSelectedCategories([]) // Reset selected categories
       setPNew(false)
       setPBest(false)
       setSelectedFile(null)
       setPreviewUrl("")
 
-      await loadProducts()
+      await fetchProducts()
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -192,7 +195,7 @@ export default function AdminInventory() {
     if (modifiedProducts.size === 0) return
 
     setSavingAll(true)
-    setError("")
+    setError(null)
 
     try {
       const headers = await authHeader()
@@ -342,16 +345,18 @@ export default function AdminInventory() {
                     ))}
                   </div>
                 )}
-                <Select onValueChange={addCategoryToNewProduct}>
+                <Select onValueChange={addCategoryToNewProduct} disabled={categoriesLoading}>
                   <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Adicionar categoria" />
+                    <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Adicionar categoria"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {AVAILABLE_CATEGORIES.filter((cat) => !pSelectedCategories.includes(cat)).map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
+                    {categories
+                      .filter((cat) => !pSelectedCategories.includes(cat.name))
+                      .map((category) => (
+                        <SelectItem key={category.id} value={category.name}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -410,7 +415,7 @@ export default function AdminInventory() {
                 <span className="ml-2">{savingAll ? "Salvando..." : `Salvar Tudo (${modifiedProducts.size})`}</span>
               </Button>
             )}
-            <Button variant="outline" onClick={loadProducts}>
+            <Button variant="outline" onClick={fetchProducts}>
               <RefreshCw className="w-4 h-4" />
               <span className="ml-2">Recarregar</span>
             </Button>
@@ -484,16 +489,21 @@ export default function AdminInventory() {
                             </Badge>
                           ))}
                         </div>
-                        <Select onValueChange={(value) => addCategoryToProduct(product.id, value)}>
+                        <Select
+                          onValueChange={(value) => addCategoryToProduct(product.id, value)}
+                          disabled={categoriesLoading}
+                        >
                           <SelectTrigger className="h-9">
-                            <SelectValue placeholder="Adicionar categoria" />
+                            <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Adicionar categoria"} />
                           </SelectTrigger>
                           <SelectContent>
-                            {AVAILABLE_CATEGORIES.filter((cat) => !product.categoria.includes(cat)).map((category) => (
-                              <SelectItem key={category} value={category}>
-                                {category}
-                              </SelectItem>
-                            ))}
+                            {categories
+                              .filter((cat) => !product.categoria.includes(cat.name))
+                              .map((category) => (
+                                <SelectItem key={category.id} value={category.name}>
+                                  {category.name}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                         <div className="flex items-center gap-4 mt-2 text-xs text-gray-600">
