@@ -299,35 +299,51 @@ export default function AdminInventory() {
         {error ? (
           <div className="mb-4 text-sm rounded-md border border-red-200 bg-red-50 text-red-700 px-3 py-2">{error}</div>
         ) : null}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm">Nome</label>
-              <Input value={pName} onChange={(e) => setPName(e.target.value)} placeholder="Nome do produto" />
+              <label className="text-sm font-medium">Nome</label>
+              <Input
+                value={pName}
+                onChange={(e) => setPName(e.target.value)}
+                placeholder="Nome do produto"
+                className="mt-1"
+              />
             </div>
             <div>
-              <label className="text-sm">Preço</label>
-              <Input value={pPrice} onChange={(e) => setPPrice(e.target.value)} placeholder="12,90" />
+              <label className="text-sm font-medium">Preço</label>
+              <Input value={pPrice} onChange={(e) => setPPrice(e.target.value)} placeholder="12,90" className="mt-1" />
             </div>
             <div>
-              <label className="text-sm">Preço original (opcional)</label>
-              <Input value={pOriginal} onChange={(e) => setPOriginal(e.target.value)} placeholder="15,90" />
+              <label className="text-sm font-medium">Preço original (opcional)</label>
+              <Input
+                value={pOriginal}
+                onChange={(e) => setPOriginal(e.target.value)}
+                placeholder="15,90"
+                className="mt-1"
+              />
             </div>
             <div>
-              <label className="text-sm">Estoque</label>
+              <label className="text-sm font-medium">Estoque</label>
               <Input
                 type="number"
                 value={pStock}
                 onChange={(e) => setPStock(Math.max(0, Math.floor(Number(e.target.value))))}
+                className="mt-1"
               />
             </div>
-            <div className="md:col-span-2">
-              <label className="text-sm">Descrição</label>
-              <Input value={pDesc} onChange={(e) => setPDesc(e.target.value)} placeholder="Descrição do produto" />
+            <div className="sm:col-span-2">
+              <label className="text-sm font-medium">Descrição</label>
+              <Input
+                value={pDesc}
+                onChange={(e) => setPDesc(e.target.value)}
+                placeholder="Descrição do produto"
+                className="mt-1"
+              />
             </div>
-            <div className="md:col-span-2">
-              <label className="text-sm">Categorias</label>
-              <div className="space-y-2">
+            <div className="sm:col-span-2">
+              <label className="text-sm font-medium">Categorias</label>
+              <div className="space-y-2 mt-1">
                 {pSelectedCategories.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {pSelectedCategories.map((category) => (
@@ -349,7 +365,7 @@ export default function AdminInventory() {
                   </div>
                 )}
                 <Select onValueChange={addCategoryToNewProduct} disabled={categoriesLoading}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-10">
                     <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Adicionar categoria"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -374,7 +390,7 @@ export default function AdminInventory() {
             </div>
           </div>
           <div>
-            <label className="text-sm">Imagem</label>
+            <label className="text-sm font-medium">Imagem</label>
             <div className="mt-2 flex flex-col gap-3">
               {previewUrl ? (
                 <Image
@@ -396,7 +412,7 @@ export default function AdminInventory() {
                 onChange={(e) => onSelectFile(e.target.files?.[0] ?? null)}
                 className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100"
               />
-              <Button onClick={createProduct} disabled={creating}>
+              <Button onClick={createProduct} disabled={creating} className="w-full">
                 {creating ? "Adicionando..." : "Adicionar"}
               </Button>
             </div>
@@ -406,19 +422,23 @@ export default function AdminInventory() {
 
       {/* List */}
       <div className="bg-white/90 rounded-2xl border border-orange-100 shadow p-4 md:p-6">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <div className="relative w-full md:max-w-sm">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+          <div className="relative w-full sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input className="pl-9" placeholder="Buscar..." value={pName} onChange={(e) => setPName(e.target.value)} />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
             {modifiedProducts.size > 0 && (
-              <Button onClick={saveAllModified} disabled={savingAll} className="bg-green-600 hover:bg-green-700">
+              <Button
+                onClick={saveAllModified}
+                disabled={savingAll}
+                className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none"
+              >
                 <SaveAll className="w-4 h-4" />
                 <span className="ml-2">{savingAll ? "Salvando..." : `Salvar Tudo (${modifiedProducts.size})`}</span>
               </Button>
             )}
-            <Button variant="outline" onClick={fetchProducts}>
+            <Button variant="outline" onClick={fetchProducts} className="flex-1 sm:flex-none bg-transparent">
               <RefreshCw className="w-4 h-4" />
               <span className="ml-2">Recarregar</span>
             </Button>
@@ -430,58 +450,234 @@ export default function AdminInventory() {
         ) : filtered.length === 0 ? (
           <div className="py-10 text-center text-gray-600">Nenhum produto encontrado.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left bg-orange-50/70">
-                  <th className="p-3 font-semibold">Produto</th>
-                  <th className="p-3 font-semibold">Categorias</th>
-                  <th className="p-3 font-semibold">Preço</th>
-                  <th className="p-3 font-semibold">Estoque</th>
-                  <th className="p-3 font-semibold">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((product) => (
-                  <tr
-                    key={product.id}
-                    className={`border-t border-orange-100 ${modifiedProducts.has(product.id) ? "bg-yellow-50" : ""}`}
-                  >
-                    <td className="p-3">
-                      <div className="flex items-center gap-3">
-                        {product.image_url ? (
-                          <Image
-                            src={product.image_url || "/placeholder.svg?height=56&width=56&query=miniatura%20produto"}
-                            alt={product.nome_produto}
-                            width={56}
-                            height={56}
-                            unoptimized
-                            className="w-14 h-14 rounded-lg object-cover bg-orange-50"
-                          />
-                        ) : (
-                          <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center">
-                            <span className="text-xl">🍦</span>
+          <>
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="text-left bg-orange-50/70">
+                    <th className="p-3 font-semibold">Produto</th>
+                    <th className="p-3 font-semibold">Categorias</th>
+                    <th className="p-3 font-semibold">Preço</th>
+                    <th className="p-3 font-semibold">Estoque</th>
+                    <th className="p-3 font-semibold">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((product) => (
+                    <tr
+                      key={product.id}
+                      className={`border-t border-orange-100 ${modifiedProducts.has(product.id) ? "bg-yellow-50" : ""}`}
+                    >
+                      <td className="p-3">
+                        <div className="flex items-center gap-3">
+                          {product.image_url ? (
+                            <Image
+                              src={product.image_url || "/placeholder.svg?height=56&width=56&query=miniatura%20produto"}
+                              alt={product.nome_produto}
+                              width={56}
+                              height={56}
+                              unoptimized
+                              className="w-14 h-14 rounded-lg object-cover bg-orange-50"
+                            />
+                          ) : (
+                            <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center">
+                              <span className="text-xl">🍦</span>
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <Input
+                              value={product.nome_produto}
+                              onChange={(e) => updateLocal(product.id, { nome_produto: e.target.value })}
+                              className="h-9"
+                            />
+                            <Input
+                              value={product.descricao ?? ""}
+                              onChange={(e) => updateLocal(product.id, { descricao: e.target.value })}
+                              className="h-9 mt-2"
+                              placeholder="Descrição"
+                            />
                           </div>
-                        )}
-                        <div className="min-w-0">
+                        </div>
+                      </td>
+                      <td className="p-3 align-top">
+                        <div className="flex flex-col gap-2">
+                          <div className="flex flex-wrap gap-1">
+                            {product.categoria?.map((category, i) => (
+                              <Badge
+                                key={i}
+                                variant="outline"
+                                className="text-xs cursor-pointer hover:bg-red-50"
+                                onClick={() => removeCategoryFromProduct(product.id, category)}
+                              >
+                                {category} ×
+                              </Badge>
+                            ))}
+                          </div>
+                          <Select
+                            onValueChange={(value) => addCategoryToProduct(product.id, value)}
+                            disabled={categoriesLoading}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Adicionar categoria"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {categories
+                                .filter((cat) => !product.categoria.includes(cat.name))
+                                .map((category) => (
+                                  <SelectItem key={category.id} value={category.name}>
+                                    {category.name}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="flex items-center gap-4 mt-2 text-xs text-gray-600">
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={product.is_new}
+                                onChange={(e) => updateLocal(product.id, { is_new: e.target.checked })}
+                              />
+                              Novo
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={product.is_best_seller}
+                                onChange={(e) => updateLocal(product.id, { is_best_seller: e.target.checked })}
+                              />
+                              Mais vendido
+                            </label>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-3 align-top">
+                        <div className="flex flex-col">
+                          <Input
+                            className="h-9"
+                            value={String(product.price)}
+                            onChange={(e) => updateLocal(product.id, { price: Number(e.target.value) || 0 })}
+                          />
+                          <Input
+                            className="h-9 mt-2"
+                            value={String(product.original_price)}
+                            onChange={(e) => updateLocal(product.id, { original_price: Number(e.target.value) || 0 })}
+                          />
+                        </div>
+                      </td>
+                      <td className="p-3 align-top w-32">
+                        <Input
+                          type="number"
+                          className="h-9 w-28"
+                          value={product.stock}
+                          min={0}
+                          onChange={(e) =>
+                            updateLocal(product.id, { stock: Math.max(0, Math.floor(Number(e.target.value))) })
+                          }
+                        />
+                      </td>
+                      <td className="p-3 align-top">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => deleteRow(product.id)}
+                            disabled={!!deletingMap[product.id]}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span className="ml-2">{deletingMap[product.id] ? "Removendo..." : "Remover"}</span>
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="lg:hidden space-y-4">
+              {filtered.map((product) => (
+                <div
+                  key={product.id}
+                  className={`border border-orange-100 rounded-xl p-4 ${modifiedProducts.has(product.id) ? "bg-yellow-50 border-yellow-200" : "bg-white"}`}
+                >
+                  {/* Product header with image and basic info */}
+                  <div className="flex items-start gap-3 mb-4">
+                    {product.image_url ? (
+                      <Image
+                        src={product.image_url || "/placeholder.svg?height=80&width=80&query=miniatura%20produto"}
+                        alt={product.nome_produto}
+                        width={80}
+                        height={80}
+                        unoptimized
+                        className="w-20 h-20 rounded-lg object-cover bg-orange-50 flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center flex-shrink-0">
+                        <span className="text-2xl">🍦</span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="space-y-2">
+                        <div>
+                          <label className="text-xs font-medium text-gray-600">Nome</label>
                           <Input
                             value={product.nome_produto}
                             onChange={(e) => updateLocal(product.id, { nome_produto: e.target.value })}
-                            className="h-9"
+                            className="h-10 mt-1"
                           />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-600">Descrição</label>
                           <Input
                             value={product.descricao ?? ""}
                             onChange={(e) => updateLocal(product.id, { descricao: e.target.value })}
-                            className="h-9 mt-2"
+                            className="h-10 mt-1"
                             placeholder="Descrição"
                           />
                         </div>
                       </div>
-                    </td>
-                    <td className="p-3 align-top">
-                      <div className="flex flex-col gap-2">
-                        <div className="flex flex-wrap gap-1">
-                          {product.categoria?.map((category, i) => (
+                    </div>
+                  </div>
+
+                  {/* Price and stock */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                      <label className="text-xs font-medium text-gray-600">Preço</label>
+                      <Input
+                        className="h-10 mt-1"
+                        value={String(product.price)}
+                        onChange={(e) => updateLocal(product.id, { price: Number(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-600">Preço Original</label>
+                      <Input
+                        className="h-10 mt-1"
+                        value={String(product.original_price)}
+                        onChange={(e) => updateLocal(product.id, { original_price: Number(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-600">Estoque</label>
+                      <Input
+                        type="number"
+                        className="h-10 mt-1"
+                        value={product.stock}
+                        min={0}
+                        onChange={(e) =>
+                          updateLocal(product.id, { stock: Math.max(0, Math.floor(Number(e.target.value))) })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  {/* Categories */}
+                  <div className="mb-4">
+                    <label className="text-xs font-medium text-gray-600">Categorias</label>
+                    <div className="space-y-2 mt-1">
+                      {product.categoria?.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {product.categoria.map((category, i) => (
                             <Badge
                               key={i}
                               variant="outline"
@@ -492,86 +688,61 @@ export default function AdminInventory() {
                             </Badge>
                           ))}
                         </div>
-                        <Select
-                          onValueChange={(value) => addCategoryToProduct(product.id, value)}
-                          disabled={categoriesLoading}
-                        >
-                          <SelectTrigger className="h-9">
-                            <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Adicionar categoria"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories
-                              .filter((cat) => !product.categoria.includes(cat.name))
-                              .map((category) => (
-                                <SelectItem key={category.id} value={category.name}>
-                                  {category.name}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-600">
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={product.is_new}
-                              onChange={(e) => updateLocal(product.id, { is_new: e.target.checked })}
-                            />
-                            Novo
-                          </label>
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={product.is_best_seller}
-                              onChange={(e) => updateLocal(product.id, { is_best_seller: e.target.checked })}
-                            />
-                            Mais vendido
-                          </label>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-3 align-top">
-                      <div className="flex flex-col">
-                        <Input
-                          className="h-9"
-                          value={String(product.price)}
-                          onChange={(e) => updateLocal(product.id, { price: Number(e.target.value) || 0 })}
+                      )}
+                      <Select
+                        onValueChange={(value) => addCategoryToProduct(product.id, value)}
+                        disabled={categoriesLoading}
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Adicionar categoria"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories
+                            .filter((cat) => !product.categoria.includes(cat.name))
+                            .map((category) => (
+                              <SelectItem key={category.id} value={category.name}>
+                                {category.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Checkboxes and actions */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={product.is_new}
+                          onChange={(e) => updateLocal(product.id, { is_new: e.target.checked })}
                         />
-                        <Input
-                          className="h-9 mt-2"
-                          value={String(product.original_price)}
-                          onChange={(e) => updateLocal(product.id, { original_price: Number(e.target.value) || 0 })}
+                        Novo
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={product.is_best_seller}
+                          onChange={(e) => updateLocal(product.id, { is_best_seller: e.target.checked })}
                         />
-                      </div>
-                    </td>
-                    <td className="p-3 align-top w-32">
-                      <Input
-                        type="number"
-                        className="h-9 w-28"
-                        value={product.stock}
-                        min={0}
-                        onChange={(e) =>
-                          updateLocal(product.id, { stock: Math.max(0, Math.floor(Number(e.target.value))) })
-                        }
-                      />
-                    </td>
-                    <td className="p-3 align-top">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => deleteRow(product.id)}
-                          disabled={!!deletingMap[product.id]}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span className="ml-2">{deletingMap[product.id] ? "Removendo..." : "Remover"}</span>
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        Mais vendido
+                      </label>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => deleteRow(product.id)}
+                      disabled={!!deletingMap[product.id]}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span className="ml-2">{deletingMap[product.id] ? "Removendo..." : "Remover"}</span>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </section>
