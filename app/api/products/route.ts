@@ -50,6 +50,7 @@ export async function GET() {
       )
     }
 
+    
     const supabase = createClient(url, anon)
 
     const { data: products, error: productsError } = await supabase
