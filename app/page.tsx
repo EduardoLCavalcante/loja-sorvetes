@@ -153,6 +153,7 @@ export default function DliceEcommerce() {
   const [modalImageError, setModalImageError] = useState(false)
   const mobileModalView =
     "max-sm:max-h-[70%] max-sm:max-w-[90vw] max-sm:my-auto max-sm:mx-auto max-sm:px-4 max-sm:rounded-2xl"
+  const [isProcessingOrder, setIsProcessingOrder] = useState(false)
   // Load products from Supabase API route
   useEffect(() => {
     async function load() {
@@ -261,24 +262,46 @@ export default function DliceEcommerce() {
     setModalImageError(false)
   }
 
-  const generateWhatsAppMessage = () => {
-    const items = cart
-      .map(
-        (item) =>
-          `• ${formatProductName(item.nome_produto)} (${item.quantity}x) - R$ ${(item.price * item.quantity).toFixed(2)}`,
-      )
-      .join("\n")
+  const generateWhatsAppMessage = async () => {
+    setIsProcessingOrder(true)
 
-    const subtotal = getTotalPrice()
-    const taxaEntrega = deliveryInfo.deliveryType === "retirada" ? 0 : getTaxaEntrega(deliveryInfo.neighborhood) // Taxa zero para retirada
-    const total = subtotal + taxaEntrega
+    try {
+      // Reduzir estoque dos produtos
+      const response = await fetch("/api/reduce-stock", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          items: cart.map((item) => ({
+            id: item.id,
+            quantity: item.quantity,
+          })),
+        }),
+      })
 
-    const deliveryText =
-      deliveryInfo.deliveryType === "retirada"
-        ? "🏪 *RETIRADA NA LOJA*\nR. Idelfonso Solon de Freitas, 558 - Popular, Limoeiro do Norte - CE"
-        : `📍 *ENDEREÇO DE ENTREGA:*\n${deliveryInfo.address}${deliveryInfo.complement ? `, ${deliveryInfo.complement}` : ""}\n${deliveryInfo.neighborhood}, ${deliveryInfo.city}`
+      if (!response.ok) {
+        throw new Error("Erro ao processar pedido")
+      }
 
-    const message = `🍦 *PEDIDO MARENI SORVETES* 🍦
+      // Gerar mensagem do WhatsApp
+      const items = cart
+        .map(
+          (item) =>
+            `• ${formatProductName(item.nome_produto)} (${item.quantity}x) - R$ ${(item.price * item.quantity).toFixed(2)}`,
+        )
+        .join("\n")
+
+      const subtotal = getTotalPrice()
+      const taxaEntrega = deliveryInfo.deliveryType === "retirada" ? 0 : getTaxaEntrega(deliveryInfo.neighborhood)
+      const total = subtotal + taxaEntrega
+
+      const deliveryText =
+        deliveryInfo.deliveryType === "retirada"
+          ? "🏪 *RETIRADA NA LOJA*\nR. Idelfonso Solon de Freitas, 558 - Popular, Limoeiro do Norte - CE"
+          : `📍 *ENDEREÇO DE ENTREGA:*\n${deliveryInfo.address}${deliveryInfo.complement ? `, ${deliveryInfo.complement}` : ""}\n${deliveryInfo.neighborhood}, ${deliveryInfo.city}`
+
+      const message = `🍦 *PEDIDO MARENI SORVETES* 🍦
 
 👤 *CLIENTE:* ${deliveryInfo.name}
 📱 *TELEFONE:* ${deliveryInfo.phone}
@@ -298,9 +321,21 @@ ${deliveryInfo.paymentMethod === "Dinheiro" ? `💰 *TROCO PARA:* R$ ${deliveryI
 
 Obrigado pela preferência! 😊`
 
-    const encodedMessage = encodeURIComponent(message)
-    const whatsappUrl = `https://wa.me/5588996867186?text=${encodedMessage}`
-    window.open(whatsappUrl, "_blank")
+      const encodedMessage = encodeURIComponent(message)
+      const whatsappUrl = `https://wa.me/5588996867186?text=${encodedMessage}`
+
+      // Abrir WhatsApp e limpar carrinho
+      window.open(whatsappUrl, "_blank")
+
+      // Limpar carrinho após sucesso
+      cart.forEach((item) => updateQuantity(item.id, 0))
+      setIsCheckoutOpen(false)
+    } catch (error) {
+      console.error("Erro ao processar pedido:", error)
+      alert("Erro ao processar pedido. Tente novamente.")
+    } finally {
+      setIsProcessingOrder(false)
+    }
   }
 
   if (loading) {
@@ -756,7 +791,7 @@ Obrigado pela preferência! 😊`
                             <p className="text-sm text-blue-700 mb-3">
                               R. Idelfonso Solon de Freitas, 558 - Popular, Limoeiro do Norte - CE, 62930-000
                             </p>
-                            <Mapa/>
+                            <Mapa />
                           </div>
                         )}
                       </div>
@@ -792,16 +827,26 @@ Obrigado pela preferência! 😊`
                       <Button
                         onClick={generateWhatsAppMessage}
                         disabled={
+                          isProcessingOrder ||
                           !deliveryInfo.name ||
                           !deliveryInfo.phone ||
                           (deliveryInfo.deliveryType !== "retirada" &&
-                          (!deliveryInfo.address || !deliveryInfo.neighborhood || !deliveryInfo.city)) ||
+                            (!deliveryInfo.address || !deliveryInfo.neighborhood || !deliveryInfo.city)) ||
                           (deliveryInfo.paymentMethod === "Dinheiro" && !deliveryInfo.changeFor)
                         }
                         className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl text-lg font-semibold flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Phone className="w-6 h-6" />
-                        <span>Enviar Pedido via WhatsApp</span>
+                        {isProcessingOrder ? (
+                          <>
+                            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Processando Pedido...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Phone className="w-6 h-6" />
+                            <span>Enviar Pedido via WhatsApp</span>
+                          </>
+                        )}
                       </Button>
 
                       <p className="text-center text-sm text-gray-500">
@@ -981,6 +1026,7 @@ Obrigado pela preferência! 😊`
                       src={
                         productModal.image_url ||
                         "/placeholder.svg?height=600&width=600&query=imagem%20de%20produto%20sorvete" ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg"
