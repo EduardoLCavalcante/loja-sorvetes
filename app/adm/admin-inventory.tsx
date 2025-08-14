@@ -390,6 +390,7 @@ export default function AdminInventory() {
   const authHeader = useCallback(async () => {
     const { data } = await supabase.auth.getSession()
     const token = data.session?.access_token
+    console.log("Auth token:", token)
     if (token) {
       return { Authorization: `Bearer ${token}` }
     }
