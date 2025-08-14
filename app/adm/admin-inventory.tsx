@@ -36,17 +36,16 @@ export default function AdminInventory() {
   const [error, setError] = useState<string | null>(null)
   const [modifiedProducts, setModifiedProducts] = useState<Set<number>>(new Set())
   const [savingAll, setSavingAll] = useState(false)
-
   const [categories, setCategories] = useState<Category[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(true)
-
+  const [searchTerm, setSearchTerm] = useState("")
   const [creating, setCreating] = useState(false)
   const [pName, setPName] = useState("")
   const [pPrice, setPPrice] = useState("")
   const [pOriginal, setPOriginal] = useState("")
   const [pStock, setPStock] = useState(0)
   const [pDesc, setPDesc] = useState("")
-  const [pSelectedCategories, setPSelectedCategories] = useState<string[]>([]) // Added state for selected categories
+  const [pSelectedCategories, setPSelectedCategories] = useState<string[]>([])
   const [pNew, setPNew] = useState(false)
   const [pBest, setPBest] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -112,10 +111,10 @@ export default function AdminInventory() {
   }, [])
 
   const filtered = useMemo(() => {
-    const t = pName.trim().toLowerCase()
+    const t = searchTerm.trim().toLowerCase()
     if (!t) return products
     return products.filter((p) => p.nome_produto.toLowerCase().includes(t))
-  }, [products, pName])
+  }, [products, searchTerm])
 
   const updateLocal = (id: number, patch: Partial<Product>) => {
     setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)))
@@ -167,7 +166,7 @@ export default function AdminInventory() {
       const headers = await authHeader()
       const res = await fetch("/api/admin/products", {
         method: "POST",
-        headers: { Authorization: `Bearer ${headers?.Authorization}` },
+        headers,
         body: formData,
       })
 
@@ -180,7 +179,7 @@ export default function AdminInventory() {
       setPOriginal("")
       setPStock(0)
       setPDesc("")
-      setPSelectedCategories([]) // Reset selected categories
+      setPSelectedCategories([])
       setPNew(false)
       setPBest(false)
       setSelectedFile(null)
@@ -425,7 +424,12 @@ export default function AdminInventory() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <div className="relative w-full sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input className="pl-9" placeholder="Buscar..." value={pName} onChange={(e) => setPName(e.target.value)} />
+            <Input
+              className="pl-9"
+              placeholder="Buscar..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             {modifiedProducts.size > 0 && (
