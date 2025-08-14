@@ -46,6 +46,14 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue
 }
 
+// Função para detectar dispositivo móvel
+const isMobile = () => {
+  return (
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    window.innerWidth <= 768
+  )
+}
+
 // Componente memorizado para linha da tabela desktop
 const ProductTableRow = memo(
   ({
@@ -387,24 +395,23 @@ export default function AdminInventory() {
   // Debounce da busca para melhor performance
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
-  const authHeader = useCallback(async () => {
+  const authHeader = async () => {
     const { data } = await supabase.auth.getSession()
     const token = data.session?.access_token
-    console.log("Auth token:", token)
     if (token) {
       return { Authorization: `Bearer ${token}` }
     }
     return undefined
-  }, [supabase.auth])
+  }
 
-  const safeJson = useCallback(async (res: Response) => {
+  const safeJson = async (res: Response) => {
     const text = await res.text()
     try {
       return text ? JSON.parse(text) : {}
     } catch {
       return {}
     }
-  }, [])
+  }
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -421,7 +428,7 @@ export default function AdminInventory() {
     } finally {
       setLoading(false)
     }
-  }, [authHeader, safeJson])
+  }, [])
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -454,14 +461,94 @@ export default function AdminInventory() {
     setModifiedProducts((prev) => new Set([...prev, id]))
   }, [])
 
-  const onSelectFile = useCallback(
-    (file: File | null) => {
-      setSelectedFile(file)
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
-      if (file) setPreviewUrl(URL.createObjectURL(file))
-      else setPreviewUrl("")
+  const compressImage = useCallback(
+    (file: File, maxWidth = 800, quality = 0.8): Promise<File> => {
+      return new Promise((resolve) => {
+        const canvas = document.createElement("canvas")
+        const ctx = canvas.getContext("2d")
+        const img = new (window.Image)()
+
+        img.onload = () => {
+          const mobile = isMobile()
+          const targetWidth = mobile ? 600 : maxWidth
+          const targetQuality = mobile ? 0.6 : quality
+
+          // Calcular dimensões mantendo proporção
+          const ratio = Math.min(targetWidth / img.width, targetWidth / img.height)
+          canvas.width = img.width * ratio
+          canvas.height = img.height * ratio
+
+          // Desenhar imagem redimensionada
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height)
+
+          // Converter para blob e depois para file
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".webp"), {
+                  type: "image/webp",
+                  lastModified: Date.now(),
+                })
+                console.log(
+                  `Imagem comprimida: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`,
+                )
+                resolve(compressedFile)
+              } else {
+                console.warn("Falha na compressão, usando arquivo original")
+                resolve(file)
+              }
+            },
+            "image/webp",
+            targetQuality,
+          )
+        }
+
+        img.onerror = () => {
+          console.warn("Erro ao carregar imagem para compressão, usando arquivo original")
+          resolve(file)
+        }
+
+        img.src = URL.createObjectURL(file)
+      })
     },
-    [previewUrl],
+    [isMobile],
+  )
+
+  const onSelectFile = useCallback(
+    async (file: File | null) => {
+      setSelectedFile(null)
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      setPreviewUrl("")
+      setError(null)
+
+      if (!file) return
+
+      const mobile = isMobile()
+      const maxSize = mobile ? 5 * 1024 * 1024 : 10 * 1024 * 1024 // 5MB para mobile, 10MB para desktop
+
+      if (file.size > maxSize) {
+        setError(`Arquivo muito grande. Máximo ${mobile ? "5MB" : "10MB"} para ${mobile ? "mobile" : "desktop"}.`)
+        return
+      }
+
+      try {
+        setError("Comprimindo imagem...")
+        const compressedFile = await compressImage(file)
+
+        if (compressedFile.size > maxSize) {
+          setError(`Imagem ainda muito grande após compressão. Tente uma imagem menor.`)
+          return
+        }
+
+        setSelectedFile(compressedFile)
+        setPreviewUrl(URL.createObjectURL(compressedFile))
+        setError(null)
+      } catch (error) {
+        console.error("Erro ao comprimir imagem:", error)
+        setError("Erro ao processar imagem. Tente outra imagem.")
+      }
+    },
+    [previewUrl, compressImage, isMobile],
   )
 
   const addCategoryToNewProduct = useCallback((category: string) => {
@@ -518,14 +605,45 @@ export default function AdminInventory() {
       formData.append("image", selectedFile)
 
       const headers = await authHeader()
+      if (!headers) {
+        throw new Error("Não autorizado. Faça login novamente.")
+      }
+
+      const controller = new AbortController()
+      const mobile = isMobile()
+      const timeout = mobile ? 120000 : 60000 // 2 minutos para mobile, 1 minuto para desktop
+      const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+      setError(`Enviando produto... ${mobile ? "(pode demorar mais em mobile)" : ""}`)
+
       const res = await fetch("/api/admin/products", {
         method: "POST",
         headers,
         body: formData,
+        signal: controller.signal,
       })
 
+      clearTimeout(timeoutId)
+
+      if (!res.ok) {
+        const errorText = await res.text()
+        let errorMessage = "Erro ao criar produto"
+
+        try {
+          const errorJson = JSON.parse(errorText)
+          errorMessage = errorJson?.error || errorMessage
+        } catch {
+          if (res.status === 401) errorMessage = "Não autorizado. Faça login novamente."
+          else if (res.status === 413) errorMessage = "Arquivo muito grande para o servidor"
+          else if (res.status === 408) errorMessage = "Timeout: Upload demorou muito"
+          else if (res.status >= 500) errorMessage = "Erro no servidor. Tente novamente."
+          else errorMessage = `Erro ${res.status}: ${errorText || "Erro desconhecido"}`
+        }
+
+        throw new Error(errorMessage)
+      }
+
       const json = await safeJson(res)
-      if (!res.ok) throw new Error(json?.error || "Erro ao criar produto")
 
       // Reset form
       setPName("")
@@ -537,11 +655,19 @@ export default function AdminInventory() {
       setPNew(false)
       setPBest(false)
       setSelectedFile(null)
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
       setPreviewUrl("")
+
+      setError("Produto criado com sucesso!")
+      setTimeout(() => setError(null), 3000)
 
       await fetchProducts()
     } catch (e: any) {
-      setError(e.message)
+      if (e.name === "AbortError") {
+        setError("Timeout: Upload demorou muito. Verifique sua conexão e tente novamente.")
+      } else {
+        setError(e.message || "Erro desconhecido ao criar produto")
+      }
     } finally {
       setCreating(false)
     }
@@ -555,9 +681,9 @@ export default function AdminInventory() {
     pNew,
     pBest,
     selectedFile,
-    authHeader,
-    safeJson,
+    previewUrl,
     fetchProducts,
+    isMobile,
   ])
 
   const saveAllModified = useCallback(async () => {
@@ -609,7 +735,7 @@ export default function AdminInventory() {
     } finally {
       setSavingAll(false)
     }
-  }, [modifiedProducts, products, authHeader, safeJson])
+  }, [modifiedProducts, products])
 
   const deleteRow = useCallback(
     async (id: number) => {
@@ -638,7 +764,7 @@ export default function AdminInventory() {
         setDeletingMap((m) => ({ ...m, [id]: false }))
       }
     },
-    [products, authHeader, safeJson],
+    [products],
   )
 
   return (
@@ -762,6 +888,11 @@ export default function AdminInventory() {
                 onChange={(e) => onSelectFile(e.target.files?.[0] ?? null)}
                 className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Imagens são automaticamente comprimidas para WebP. Máximo {isMobile() ? "5MB" : "10MB"}{" "}
+                {isMobile() ? "(mobile)" : "(desktop)"}.
+                {isMobile() && <span className="block text-orange-600">Mobile: compressão extra aplicada</span>}
+              </p>
               <Button onClick={createProduct} disabled={creating} className="w-full">
                 {creating ? "Adicionando..." : "Adicionar"}
               </Button>
