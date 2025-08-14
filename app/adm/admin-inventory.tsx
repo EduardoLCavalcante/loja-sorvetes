@@ -369,7 +369,7 @@ const ProductMobileCard = memo(
 
 ProductMobileCard.displayName = "ProductMobileCard"
 
-export default function AdminInventory() {
+export default function AdminInventory({ onAuthError }: { onAuthError?: () => void }) {
   const supabase = getSupabaseBrowserClient()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -395,13 +395,42 @@ export default function AdminInventory() {
   // Debounce da busca para melhor performance
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
+  const handleAuthError = useCallback(
+    (error: any, response?: Response) => {
+      if (
+        response?.status === 401 ||
+        error?.message?.includes("não autorizado") ||
+        error?.message?.includes("unauthorized")
+      ) {
+        console.warn("Erro de autenticação detectado, fazendo logout...")
+        onAuthError?.()
+        return true
+      }
+      return false
+    },
+    [onAuthError],
+  )
+
   const authHeader = async () => {
-    const { data } = await supabase.auth.getSession()
-    const token = data.session?.access_token
-    if (token) {
+    try {
+      const { data, error } = await supabase.auth.getSession()
+      if (error) {
+        console.warn("Erro ao obter sessão:", error)
+        handleAuthError(error)
+        return undefined
+      }
+      const token = data.session?.access_token
+      if (!token) {
+        console.warn("Token não encontrado")
+        handleAuthError(new Error("Token não encontrado"))
+        return undefined
+      }
       return { Authorization: `Bearer ${token}` }
+    } catch (error) {
+      console.warn("Erro ao obter header de auth:", error)
+      handleAuthError(error)
+      return undefined
     }
-    return undefined
   }
 
   const safeJson = async (res: Response) => {
@@ -418,30 +447,63 @@ export default function AdminInventory() {
       setLoading(true)
       setError(null)
       const headers = await authHeader()
-      const res = await fetch("/api/admin/products", { cache: "no-store", headers })
+      if (!headers) {
+        setError("Não foi possível obter autorização. Faça login novamente.")
+        return
+      }
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+
+      const res = await fetch("/api/admin/products", {
+        cache: "no-store",
+        headers,
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
       const json = await safeJson(res)
-      if (!res.ok) throw new Error(json?.error || "Falha ao carregar produtos.")
+
+      if (!res.ok) {
+        if (handleAuthError(new Error(json?.error), res)) return
+        throw new Error(json?.error || "Falha ao carregar produtos.")
+      }
+
       setProducts(Array.isArray(json?.products) ? json.products : [])
       setModifiedProducts(new Set())
     } catch (e: any) {
-      setError(e?.message || "Erro ao carregar.")
+      if (e.name === "AbortError") {
+        setError("Timeout: Carregamento demorou muito. Verifique sua conexão e tente novamente.")
+      } else if (!handleAuthError(e)) {
+        setError(e?.message || "Erro ao carregar.")
+      }
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [handleAuthError])
 
   const fetchCategories = useCallback(async () => {
     try {
-      setCategoriesLoading(true)
-      const response = await fetch("/api/categories")
-      if (!response.ok) throw new Error("Failed to fetch categories")
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 15000)
 
-      const data = await response.json()
-      setCategories(data)
-    } catch (error) {
-      console.error("Error fetching categories:", error)
-    } finally {
-      setCategoriesLoading(false)
+      const res = await fetch("/api/categories", {
+        cache: "no-store",
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+      const json = await safeJson(res)
+
+      if (res.ok && Array.isArray(json?.categories)) {
+        setCategories(json.categories)
+      }
+    } catch (e: any) {
+      if (e.name === "AbortError") {
+        console.warn("Timeout ao carregar categorias")
+      } else {
+        console.warn("Erro ao carregar categorias:", e)
+      }
     }
   }, [])
 
@@ -466,7 +528,7 @@ export default function AdminInventory() {
       return new Promise((resolve) => {
         const canvas = document.createElement("canvas")
         const ctx = canvas.getContext("2d")
-        const img = new (window.Image)()
+        const img = new window.Image()
 
         img.onload = () => {
           const mobile = isMobile()
@@ -606,12 +668,13 @@ export default function AdminInventory() {
 
       const headers = await authHeader()
       if (!headers) {
-        throw new Error("Não autorizado. Faça login novamente.")
+        setError("Não foi possível obter autorização. Faça login novamente.")
+        return
       }
 
       const controller = new AbortController()
       const mobile = isMobile()
-      const timeout = mobile ? 120000 : 60000 // 2 minutos para mobile, 1 minuto para desktop
+      const timeout = mobile ? 120000 : 60000
       const timeoutId = setTimeout(() => controller.abort(), timeout)
 
       setError(`Enviando produto... ${mobile ? "(pode demorar mais em mobile)" : ""}`)
@@ -640,6 +703,8 @@ export default function AdminInventory() {
           else errorMessage = `Erro ${res.status}: ${errorText || "Erro desconhecido"}`
         }
 
+        if (handleAuthError(new Error(errorMessage), res)) return
+
         throw new Error(errorMessage)
       }
 
@@ -665,7 +730,7 @@ export default function AdminInventory() {
     } catch (e: any) {
       if (e.name === "AbortError") {
         setError("Timeout: Upload demorou muito. Verifique sua conexão e tente novamente.")
-      } else {
+      } else if (!handleAuthError(e)) {
         setError(e.message || "Erro desconhecido ao criar produto")
       }
     } finally {
@@ -683,44 +748,56 @@ export default function AdminInventory() {
     selectedFile,
     previewUrl,
     fetchProducts,
-    isMobile,
+    handleAuthError,
   ])
 
   const saveAllModified = useCallback(async () => {
     if (modifiedProducts.size === 0) return
 
     setSavingAll(true)
-    setError(null)
-
     try {
       const headers = await authHeader()
-      const productsToSave = products.filter((product) => modifiedProducts.has(product.id))
+      if (!headers) {
+        setError("Não foi possível obter autorização. Faça login novamente.")
+        return
+      }
 
-      // Salvar todos os produtos modificados em paralelo
-      const savePromises = productsToSave.map(async (product) => {
-        const res = await fetch("/api/admin/products", {
+      const modifiedList = products.filter((p) => modifiedProducts.has(p.id))
+
+      const savePromises = modifiedList.map(async (product) => {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 30000)
+
+        const res = await fetch(`/api/admin/products?id=${product.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", ...headers },
+          signal: controller.signal,
           body: JSON.stringify({
-            id: product.id,
             nome_produto: product.nome_produto,
-            descricao: product.descricao ?? "",
-            price: product.price,
-            original_price: product.original_price,
-            categoria: product.categoria,
+            preco: product.price,
+            preco_original: product.original_price,
             stock: product.stock,
+            descricao: product.descricao,
+            categories: product.categoria,
             is_new: product.is_new,
             is_best_seller: product.is_best_seller,
           }),
         })
+
+        clearTimeout(timeoutId)
         const json = await safeJson(res)
-        if (!res.ok) throw new Error(`Erro ao salvar ${product.nome_produto}: ${json?.error || "Falha ao salvar."}`)
+
+        if (!res.ok) {
+          if (handleAuthError(new Error(json?.error), res)) {
+            throw new Error("Sessão expirada")
+          }
+          throw new Error(`Erro ao salvar ${product.nome_produto}: ${json?.error || "Falha ao salvar."}`)
+        }
         return json?.product
       })
 
       const updatedProducts = await Promise.all(savePromises)
 
-      // Atualizar os produtos no estado
       setProducts((prev) =>
         prev.map((product) => {
           const updated = updatedProducts.find((up) => up?.id === product.id)
@@ -728,30 +805,47 @@ export default function AdminInventory() {
         }),
       )
 
-      // Limpar produtos modificados
       setModifiedProducts(new Set())
     } catch (e: any) {
-      setError(e?.message || "Erro ao salvar produtos.")
+      if (e.name === "AbortError") {
+        setError("Timeout: Salvamento demorou muito. Verifique sua conexão e tente novamente.")
+      } else if (!handleAuthError(e)) {
+        setError(e?.message || "Erro ao salvar produtos.")
+      }
     } finally {
       setSavingAll(false)
     }
-  }, [modifiedProducts, products])
+  }, [modifiedProducts, products, handleAuthError])
 
   const deleteRow = useCallback(
     async (id: number) => {
-      const product = products.find((p) => p.id === id)
-      if (!product) return
-      if (!window.confirm(`Remover o produto "${product.nome_produto}"?`)) return
+      if (!confirm("Tem certeza que deseja remover este produto?")) return
       setDeletingMap((m) => ({ ...m, [id]: true }))
       try {
         const headers = await authHeader()
+        if (!headers) {
+          setError("Não foi possível obter autorização. Faça login novamente.")
+          return
+        }
+
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 30000)
+
         const res = await fetch(`/api/admin/products?id=${id}`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json", ...headers },
           body: JSON.stringify({ id }),
+          signal: controller.signal,
         })
+
+        clearTimeout(timeoutId)
         const json = await safeJson(res)
-        if (!res.ok) throw new Error(json?.error || "Falha ao remover.")
+
+        if (!res.ok) {
+          if (handleAuthError(new Error(json?.error), res)) return
+          throw new Error(json?.error || "Falha ao remover.")
+        }
+
         setProducts((prev) => prev.filter((p) => p.id !== id))
         setModifiedProducts((prev) => {
           const newSet = new Set(prev)
@@ -759,12 +853,16 @@ export default function AdminInventory() {
           return newSet
         })
       } catch (e: any) {
-        setError(e?.message || "Erro ao remover.")
+        if (e.name === "AbortError") {
+          setError("Timeout: Remoção demorou muito. Verifique sua conexão e tente novamente.")
+        } else if (!handleAuthError(e)) {
+          setError(e?.message || "Erro ao remover.")
+        }
       } finally {
         setDeletingMap((m) => ({ ...m, [id]: false }))
       }
     },
-    [products],
+    [products, handleAuthError],
   )
 
   return (

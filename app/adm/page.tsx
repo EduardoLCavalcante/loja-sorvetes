@@ -24,29 +24,57 @@ export default function AdminPage() {
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s)
+      if (!s && ready) {
+        setError("Sessão expirada. Faça login novamente.")
+      }
     })
     return () => {
       mounted = false
       sub.subscription.unsubscribe()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [ready])
 
   const signIn = async () => {
     try {
       setError(null)
       setLoading(true)
-      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
+
+      clearTimeout(timeoutId)
+
       if (error) throw error
     } catch (e: any) {
-      setError(e?.message || "Falha ao entrar.")
+      if (e.name === "AbortError") {
+        setError("Timeout: Login demorou muito. Verifique sua conexão e tente novamente.")
+      } else {
+        setError(e?.message || "Falha ao entrar.")
+      }
     } finally {
       setLoading(false)
     }
   }
 
   const signOut = async () => {
+    setLoading(true)
+    setError("Saindo...")
     await supabase.auth.signOut()
+    setError(null)
+    setEmail("")
+    setPassword("")
+    setLoading(false)
+  }
+
+  const forceSignOut = async () => {
+    await supabase.auth.signOut()
+    setError("Sessão inválida. Faça login novamente.")
   }
 
   if (!ready) {
@@ -90,6 +118,7 @@ export default function AdminPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Sua senha"
+                onKeyDown={(e) => e.key === "Enter" && signIn()}
               />
             </div>
             <Button onClick={signIn} disabled={loading} className="w-full">
@@ -116,7 +145,7 @@ export default function AdminPage() {
         </div>
       </header>
       <div className="max-w-6xl mx-auto p-4 md:p-6">
-        <AdminInventory />
+        <AdminInventory onAuthError={forceSignOut} />
       </div>
     </main>
   )
