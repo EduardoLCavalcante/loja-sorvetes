@@ -1,13 +1,15 @@
 "use client"
 
-import { useEffect, useMemo, useState, useCallback, memo } from "react"
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import Image from "next/image"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, RefreshCw, Trash2, SaveAll } from "lucide-react"
+import { Search, RefreshCw, Trash2, SaveAll, Loader2 } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Table, TableHeader, TableBody, TableRow, TableHead } from "@/components/ui/table"
 
 interface Product {
   id: number
@@ -46,6 +48,94 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue
 }
 
+function useDebouncedInput<T>(
+  initialValue: T,
+  onUpdate: (value: T) => void,
+  delay = 300,
+  transform?: (value: string) => T,
+) {
+  const [localValue, setLocalValue] = useState<string>(String(initialValue))
+  const debouncedValue = useDebounce(localValue, delay)
+  const isInitialMount = useRef(true)
+  const lastCommittedValue = useRef<string>(String(initialValue))
+
+  // Atualiza valor local apenas quando valor inicial muda externamente
+  useEffect(() => {
+    const newStringValue = String(initialValue)
+    if (newStringValue !== lastCommittedValue.current) {
+      setLocalValue(newStringValue)
+      lastCommittedValue.current = newStringValue
+    }
+  }, [initialValue])
+
+  // Chama onUpdate apenas quando usuário fez mudanças reais
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+
+    if (debouncedValue !== lastCommittedValue.current) {
+      const transformedValue = transform ? transform(debouncedValue) : (debouncedValue as T)
+      onUpdate(transformedValue)
+      lastCommittedValue.current = debouncedValue
+    }
+  }, [debouncedValue, onUpdate, transform])
+
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalValue(e.target.value)
+  }, [])
+
+  return {
+    value: localValue,
+    onChange: handleChange,
+  }
+}
+
+const DebouncedTextInput = React.memo(
+  ({
+    value,
+    onUpdate,
+    className,
+    placeholder,
+  }: {
+    value: string
+    onUpdate: (value: string) => void
+    className?: string
+    placeholder?: string
+  }) => {
+    const input = useDebouncedInput(value, onUpdate, 200)
+    return <Input {...input} className={className} placeholder={placeholder} />
+  },
+)
+
+const DebouncedNumberInput = React.memo(
+  ({
+    value,
+    onUpdate,
+    className,
+    min,
+    type = "text",
+  }: {
+    value: number
+    onUpdate: (value: number) => void
+    className?: string
+    min?: number
+    type?: string
+  }) => {
+    const transformNumber = useCallback(
+      (val: string) => {
+        const num = Number(val) || 0
+        return min !== undefined ? Math.max(min, type === "number" ? Math.floor(num) : num) : num
+      },
+      [min, type],
+    )
+
+    const input = useDebouncedInput(value, onUpdate, 300, transformNumber)
+    return <Input {...input} type={type} className={className} min={min} />
+  },
+)
+
 // Função para detectar dispositivo móvel
 const isMobile = () => {
   return (
@@ -55,55 +145,61 @@ const isMobile = () => {
 }
 
 // Componente memorizado para linha da tabela desktop
-const ProductTableRow = memo(
+const ProductRowDesktop = React.memo(
   ({
     product,
-    modifiedProducts,
-    deletingMap,
-    categories,
-    categoriesLoading,
     onUpdateLocal,
-    onAddCategory,
-    onRemoveCategory,
-    onDelete,
+    onRemove,
+    availableCategories,
+    isRemoving,
   }: {
     product: Product
-    modifiedProducts: Set<number>
-    deletingMap: Record<number, boolean>
-    categories: Category[]
-    categoriesLoading: boolean
     onUpdateLocal: (id: number, patch: Partial<Product>) => void
-    onAddCategory: (productId: number, category: string) => void
-    onRemoveCategory: (productId: number, category: string) => void
-    onDelete: (id: number) => void
+    onRemove: (id: number) => void
+    availableCategories: Category[]
+    isRemoving: boolean
   }) => {
+    const updateName = useCallback(
+      (value: string) => onUpdateLocal(product.id, { nome_produto: value }),
+      [product.id, onUpdateLocal],
+    )
+    const updateDescription = useCallback(
+      (value: string) => onUpdateLocal(product.id, { descricao: value }),
+      [product.id, onUpdateLocal],
+    )
+    const updatePrice = useCallback(
+      (value: number) => onUpdateLocal(product.id, { price: value }),
+      [product.id, onUpdateLocal],
+    )
+    const updateOriginalPrice = useCallback(
+      (value: number) => onUpdateLocal(product.id, { original_price: value }),
+      [product.id, onUpdateLocal],
+    )
+    const updateStock = useCallback(
+      (value: number) => onUpdateLocal(product.id, { stock: value }),
+      [product.id, onUpdateLocal],
+    )
+
     return (
-      <tr className={`border-t border-orange-100 ${modifiedProducts.has(product.id) ? "bg-yellow-50" : ""}`}>
-        <td className="p-3">
-          <div className="flex items-center gap-3">
-            {product.image_url ? (
-              <Image
-                src={product.image_url || "/placeholder.svg?height=56&width=56&query=miniatura%20produto"}
+      <tr key={product.id} className={product.stock === 0 ? "opacity-60" : ""}>
+        <td className="p-3 align-top">
+          <div className="flex items-start gap-3">
+            {product.caminho ? (
+              <img
+                src={product.caminho || "/placeholder.svg"}
                 alt={product.nome_produto}
-                width={56}
-                height={56}
-                unoptimized
-                className="w-14 h-14 rounded-lg object-cover bg-orange-50"
+                className="w-16 h-16 object-cover rounded"
               />
             ) : (
-              <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center">
+              <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
                 <span className="text-xl">🍦</span>
               </div>
             )}
             <div className="min-w-0">
-              <Input
-                value={product.nome_produto}
-                onChange={(e) => onUpdateLocal(product.id, { nome_produto: e.target.value })}
-                className="h-9"
-              />
-              <Input
+              <DebouncedTextInput value={product.nome_produto} onUpdate={updateName} className="h-9" />
+              <DebouncedTextInput
                 value={product.descricao ?? ""}
-                onChange={(e) => onUpdateLocal(product.id, { descricao: e.target.value })}
+                onUpdate={updateDescription}
                 className="h-9 mt-2"
                 placeholder="Descrição"
               />
@@ -111,86 +207,44 @@ const ProductTableRow = memo(
           </div>
         </td>
         <td className="p-3 align-top">
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap gap-1">
-              {product.categoria?.map((category, i) => (
-                <Badge
-                  key={i}
-                  variant="outline"
-                  className="text-xs cursor-pointer hover:bg-red-50"
-                  onClick={() => onRemoveCategory(product.id, category)}
-                >
-                  {category} ×
-                </Badge>
-              ))}
-            </div>
-            <Select onValueChange={(value) => onAddCategory(product.id, value)} disabled={categoriesLoading}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Adicionar categoria"} />
-              </SelectTrigger>
-              <SelectContent>
-                {categories
-                  .filter((cat) => !product.categoria.includes(cat.name))
-                  .map((category) => (
-                    <SelectItem key={category.id} value={category.name}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-4 mt-2 text-xs text-gray-600">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={product.is_new}
-                  onChange={(e) => onUpdateLocal(product.id, { is_new: e.target.checked })}
-                />
-                Novo
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={product.is_best_seller}
-                  onChange={(e) => onUpdateLocal(product.id, { is_best_seller: e.target.checked })}
-                />
-                Mais vendido
-              </label>
-            </div>
+          <div className="flex flex-wrap gap-1">
+            {product.categoria?.map((category, i) => (
+              <Badge
+                key={i}
+                variant="outline"
+                className="text-xs cursor-pointer hover:bg-red-50"
+                onClick={() => console.log(`Remove category ${category} from product ${product.id}`)}
+              >
+                {category} ×
+              </Badge>
+            ))}
           </div>
         </td>
         <td className="p-3 align-top">
           <div className="flex flex-col">
-            <Input
-              className="h-9"
-              value={String(product.price)}
-              onChange={(e) => onUpdateLocal(product.id, { price: Number(e.target.value) || 0 })}
-            />
-            <Input
-              className="h-9 mt-2"
-              value={String(product.original_price)}
-              onChange={(e) => onUpdateLocal(product.id, { original_price: Number(e.target.value) || 0 })}
-            />
+            <DebouncedNumberInput value={product.price} onUpdate={updatePrice} className="h-9" />
+            <DebouncedNumberInput value={product.original_price} onUpdate={updateOriginalPrice} className="h-9 mt-2" />
           </div>
         </td>
         <td className="p-3 align-top w-32">
-          <Input
-            type="number"
-            className="h-9 w-28"
+          <DebouncedNumberInput
             value={product.stock}
+            onUpdate={updateStock}
+            className="h-9 w-28"
             min={0}
-            onChange={(e) => onUpdateLocal(product.id, { stock: Math.max(0, Math.floor(Number(e.target.value))) })}
+            type="number"
           />
         </td>
         <td className="p-3 align-top">
           <div className="flex items-center gap-2">
             <Button
-              size="sm"
               variant="destructive"
-              onClick={() => onDelete(product.id)}
-              disabled={!!deletingMap[product.id]}
+              size="sm"
+              onClick={() => onRemove(product.id)}
+              disabled={isRemoving}
+              className="h-9"
             >
-              <Trash2 className="w-4 h-4" />
-              <span className="ml-2">{deletingMap[product.id] ? "Removendo..." : "Remover"}</span>
+              {isRemoving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
             </Button>
           </div>
         </td>
@@ -199,175 +253,149 @@ const ProductTableRow = memo(
   },
 )
 
-ProductTableRow.displayName = "ProductTableRow"
-
 // Componente memorizado para card mobile
-const ProductMobileCard = memo(
+const ProductCardMobile = React.memo(
   ({
     product,
-    modifiedProducts,
-    deletingMap,
-    categories,
-    categoriesLoading,
     onUpdateLocal,
-    onAddCategory,
-    onRemoveCategory,
-    onDelete,
+    onRemove,
+    availableCategories,
+    isRemoving,
   }: {
     product: Product
-    modifiedProducts: Set<number>
-    deletingMap: Record<number, boolean>
-    categories: Category[]
-    categoriesLoading: boolean
     onUpdateLocal: (id: number, patch: Partial<Product>) => void
-    onAddCategory: (productId: number, category: string) => void
-    onRemoveCategory: (productId: number, category: string) => void
-    onDelete: (id: number) => void
+    onRemove: (id: number) => void
+    availableCategories: Category[]
+    isRemoving: boolean
   }) => {
+    const updateName = useCallback(
+      (value: string) => onUpdateLocal(product.id, { nome_produto: value }),
+      [product.id, onUpdateLocal],
+    )
+    const updateDescription = useCallback(
+      (value: string) => onUpdateLocal(product.id, { descricao: value }),
+      [product.id, onUpdateLocal],
+    )
+    const updatePrice = useCallback(
+      (value: number) => onUpdateLocal(product.id, { price: value }),
+      [product.id, onUpdateLocal],
+    )
+    const updateOriginalPrice = useCallback(
+      (value: number) => onUpdateLocal(product.id, { original_price: value }),
+      [product.id, onUpdateLocal],
+    )
+    const updateStock = useCallback(
+      (value: number) => onUpdateLocal(product.id, { stock: value }),
+      [product.id, onUpdateLocal],
+    )
+
     return (
-      <div
-        className={`border border-orange-100 rounded-xl p-4 ${modifiedProducts.has(product.id) ? "bg-yellow-50 border-yellow-200" : "bg-white"}`}
-      >
-        {/* Product header with image and basic info */}
-        <div className="flex items-start gap-3 mb-4">
-          {product.image_url ? (
-            <Image
-              src={product.image_url || "/placeholder.svg?height=80&width=80&query=miniatura%20produto"}
-              alt={product.nome_produto}
-              width={80}
-              height={80}
-              unoptimized
-              className="w-20 h-20 rounded-lg object-cover bg-orange-50 flex-shrink-0"
-            />
-          ) : (
-            <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center flex-shrink-0">
-              <span className="text-2xl">🍦</span>
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <div className="space-y-2">
+      <Card key={product.id} className={`mb-4 ${product.stock === 0 ? "opacity-60" : ""}`}>
+        <CardContent className="p-4">
+          {/* Image and basic info */}
+          <div className="flex gap-3 mb-4">
+            {product.caminho ? (
+              <img
+                src={product.caminho || "/placeholder.svg"}
+                alt={product.nome_produto}
+                className="w-20 h-20 object-cover rounded"
+              />
+            ) : (
+              <div className="w-20 h-20 bg-gray-100 rounded flex items-center justify-center">
+                <span className="text-2xl">🍦</span>
+              </div>
+            )}
+            <div className="flex-1 space-y-2">
               <div>
                 <label className="text-xs font-medium text-gray-600">Nome</label>
-                <Input
-                  value={product.nome_produto}
-                  onChange={(e) => onUpdateLocal(product.id, { nome_produto: e.target.value })}
-                  className="h-10 mt-1"
-                />
+                <DebouncedTextInput value={product.nome_produto} onUpdate={updateName} className="h-10 mt-1" />
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600">Descrição</label>
-                <Input
+                <DebouncedTextInput
                   value={product.descricao ?? ""}
-                  onChange={(e) => onUpdateLocal(product.id, { descricao: e.target.value })}
+                  onUpdate={updateDescription}
                   className="h-10 mt-1"
                   placeholder="Descrição"
                 />
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Price and stock */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div>
-            <label className="text-xs font-medium text-gray-600">Preço</label>
-            <Input
-              className="h-10 mt-1"
-              value={String(product.price)}
-              onChange={(e) => onUpdateLocal(product.id, { price: Number(e.target.value) || 0 })}
-            />
+          {/* Price and stock */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label className="text-xs font-medium text-gray-600">Preço</label>
+              <DebouncedNumberInput value={product.price} onUpdate={updatePrice} className="h-10 mt-1" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">Preço Original</label>
+              <DebouncedNumberInput
+                value={product.original_price}
+                onUpdate={updateOriginalPrice}
+                className="h-10 mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">Estoque</label>
+              <DebouncedNumberInput
+                value={product.stock}
+                onUpdate={updateStock}
+                className="h-10 mt-1"
+                min={0}
+                type="number"
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-xs font-medium text-gray-600">Preço Original</label>
-            <Input
-              className="h-10 mt-1"
-              value={String(product.original_price)}
-              onChange={(e) => onUpdateLocal(product.id, { original_price: Number(e.target.value) || 0 })}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-600">Estoque</label>
-            <Input
-              type="number"
-              className="h-10 mt-1"
-              value={product.stock}
-              min={0}
-              onChange={(e) => onUpdateLocal(product.id, { stock: Math.max(0, Math.floor(Number(e.target.value))) })}
-            />
-          </div>
-        </div>
 
-        {/* Categories */}
-        <div className="mb-4">
-          <label className="text-xs font-medium text-gray-600">Categorias</label>
-          <div className="space-y-2 mt-1">
-            {product.categoria?.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {product.categoria.map((category, i) => (
-                  <Badge
-                    key={i}
-                    variant="outline"
-                    className="text-xs cursor-pointer hover:bg-red-50"
-                    onClick={() => onRemoveCategory(product.id, category)}
-                  >
-                    {category} ×
-                  </Badge>
-                ))}
-              </div>
-            )}
-            <Select onValueChange={(value) => onAddCategory(product.id, value)} disabled={categoriesLoading}>
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Adicionar categoria"} />
-              </SelectTrigger>
-              <SelectContent>
-                {categories
-                  .filter((cat) => !product.categoria.includes(cat.name))
-                  .map((category) => (
+          {/* Categories */}
+          <div className="mb-4">
+            <label className="text-xs font-medium text-gray-600">Categorias</label>
+            <div className="space-y-2 mt-1">
+              {product.categoria?.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {product.categoria.map((category, i) => (
+                    <Badge
+                      key={i}
+                      variant="outline"
+                      className="text-xs cursor-pointer hover:bg-red-50"
+                      onClick={() => console.log(`Remove category ${category} from product ${product.id}`)}
+                    >
+                      {category} ×
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <Select
+                onValueChange={(value) => console.log(`Add category ${value} to product ${product.id}`)}
+                disabled={false}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Adicionar categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCategories.map((category) => (
                     <SelectItem key={category.id} value={category.name}>
                       {category.name}
                     </SelectItem>
                   ))}
-              </SelectContent>
-            </Select>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </div>
 
-        {/* Checkboxes and actions */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4 text-sm text-gray-600">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={product.is_new}
-                onChange={(e) => onUpdateLocal(product.id, { is_new: e.target.checked })}
-              />
-              Novo
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={product.is_best_seller}
-                onChange={(e) => onUpdateLocal(product.id, { is_best_seller: e.target.checked })}
-              />
-              Mais vendido
-            </label>
+          {/* Actions */}
+          <div className="flex justify-end">
+            <Button variant="destructive" size="sm" onClick={() => onRemove(product.id)} disabled={isRemoving}>
+              {isRemoving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Remover
+            </Button>
           </div>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => onDelete(product.id)}
-            disabled={!!deletingMap[product.id]}
-          >
-            <Trash2 className="w-4 h-4" />
-            <span className="ml-2">{deletingMap[product.id] ? "Removendo..." : "Remover"}</span>
-          </Button>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     )
   },
 )
-
-ProductMobileCard.displayName = "ProductMobileCard"
 
 export default function AdminInventory({ onAuthError }: { onAuthError?: () => void }) {
   const supabase = getSupabaseBrowserClient()
@@ -491,10 +519,10 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
         cache: "no-store",
         signal: controller.signal,
       })
-      
+
       clearTimeout(timeoutId)
       const json = await safeJson(res)
-      
+
       if (res.ok && Array.isArray(json)) {
         setCategories(json)
         setCategoriesLoading(false)
@@ -513,7 +541,7 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
     fetchCategories()
   }, [fetchProducts, fetchCategories])
 
-  const filtered = useMemo(() => {
+  const filteredProducts = useMemo(() => {
     const t = debouncedSearchTerm.trim().toLowerCase()
     if (!t) return products
     return products.filter((p) => p.nome_produto.toLowerCase().includes(t))
@@ -769,25 +797,25 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 30000)
 
-        const res = await fetch(`/api/admin/products?id=${product.id}`, {
+        const res = await fetch(`/api/admin/products`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", ...headers },
           signal: controller.signal,
           body: JSON.stringify({
+            id: product.id,
             nome_produto: product.nome_produto,
             price: product.price,
             original_price: product.original_price,
             stock: product.stock,
-            descricao: product.descricao,            
+            descricao: product.descricao,
             is_new: product.is_new,
             is_best_seller: product.is_best_seller,
+            categoria: Array.isArray(product.categoria) ? product.categoria : [],
           }),
         })
-        console.log(res)
 
         clearTimeout(timeoutId)
         const json = await safeJson(res)
-        console.log(json)
         if (!res.ok) {
           if (handleAuthError(new Error(json?.error), res)) {
             throw new Error("Sessão expirada")
@@ -1032,53 +1060,47 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
 
         {loading ? (
           <div className="py-10 text-center text-gray-600">Carregando...</div>
-        ) : filtered.length === 0 ? (
+        ) : filteredProducts.length === 0 ? (
           <div className="py-10 text-center text-gray-600">Nenhum produto encontrado.</div>
         ) : (
           <>
-            <div className="hidden lg:block overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="text-left bg-orange-50/70">
-                    <th className="p-3 font-semibold">Produto</th>
-                    <th className="p-3 font-semibold">Categorias</th>
-                    <th className="p-3 font-semibold">Preço</th>
-                    <th className="p-3 font-semibold">Estoque</th>
-                    <th className="p-3 font-semibold">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((product) => (
-                    <ProductTableRow
+            {/* Desktop Table */}
+            <div className="hidden lg:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produto</TableHead>
+                    <TableHead>Categorias</TableHead>
+                    <TableHead>Preços</TableHead>
+                    <TableHead>Estoque</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredProducts.map((product) => (
+                    <ProductRowDesktop
                       key={product.id}
                       product={product}
-                      modifiedProducts={modifiedProducts}
-                      deletingMap={deletingMap}
-                      categories={categories}
-                      categoriesLoading={categoriesLoading}
                       onUpdateLocal={updateLocal}
-                      onAddCategory={addCategoryToProduct}
-                      onRemoveCategory={removeCategoryFromProduct}
-                      onDelete={deleteRow}
+                      onRemove={deleteRow}
+                      availableCategories={categories}
+                      isRemoving={deletingMap[product.id]}
                     />
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
 
+            {/* Mobile Cards */}
             <div className="lg:hidden space-y-4">
-              {filtered.map((product) => (
-                <ProductMobileCard
+              {filteredProducts.map((product) => (
+                <ProductCardMobile
                   key={product.id}
                   product={product}
-                  modifiedProducts={modifiedProducts}
-                  deletingMap={deletingMap}
-                  categories={categories}
-                  categoriesLoading={categoriesLoading}
                   onUpdateLocal={updateLocal}
-                  onAddCategory={addCategoryToProduct}
-                  onRemoveCategory={removeCategoryFromProduct}
-                  onDelete={deleteRow}
+                  onRemove={deleteRow}
+                  availableCategories={categories}
+                  isRemoving={deletingMap[product.id]}
                 />
               ))}
             </div>
