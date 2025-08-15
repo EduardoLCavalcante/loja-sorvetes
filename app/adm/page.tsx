@@ -15,25 +15,35 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    let mounted = true
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return
-      setSession(data.session ?? null)
-      setReady(true)
-    })
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s)
-      if (!s && ready) {
-        setError("Sessão expirada. Faça login novamente.")
-      }
-    })
-    return () => {
-      mounted = false
-      sub.subscription.unsubscribe()
+ useEffect(() => {
+  let mounted = true;
+
+  // Pega a sessão inicial
+  supabase.auth.getSession().then(({ data }) => {
+    if (!mounted) return;
+    setSession(data.session ?? null);
+    setReady(true);
+  });
+
+  // Escuta mudanças na sessão (login, logout, refresh)
+  const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (!mounted) return;
+
+    setSession(session);
+
+    // Só mostra erro se realmente for um logout e não um refresh
+    if (!session && ready) {
+      setError("Sessão expirada. Faça login novamente.");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready])
+  });
+
+  return () => {
+    mounted = false;
+    sub.subscription.unsubscribe();
+  };
+  // Sem 'ready' nas dependências, para não recriar listener
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   const signIn = async () => {
     try {
@@ -70,6 +80,7 @@ export default function AdminPage() {
     setEmail("")
     setPassword("")
     setLoading(false)
+    setSession(null)
   }
 
   const forceSignOut = async () => {
@@ -84,7 +95,7 @@ export default function AdminPage() {
       </div>
     )
   }
-
+  
   if (!session) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50 flex items-center justify-center px-4">

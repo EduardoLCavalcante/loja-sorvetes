@@ -491,12 +491,13 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
         cache: "no-store",
         signal: controller.signal,
       })
-
+      
       clearTimeout(timeoutId)
       const json = await safeJson(res)
-
-      if (res.ok && Array.isArray(json?.categories)) {
-        setCategories(json.categories)
+      
+      if (res.ok && Array.isArray(json)) {
+        setCategories(json)
+        setCategoriesLoading(false)
       }
     } catch (e: any) {
       if (e.name === "AbortError") {
@@ -774,19 +775,19 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
           signal: controller.signal,
           body: JSON.stringify({
             nome_produto: product.nome_produto,
-            preco: product.price,
-            preco_original: product.original_price,
+            price: product.price,
+            original_price: product.original_price,
             stock: product.stock,
-            descricao: product.descricao,
-            categories: product.categoria,
+            descricao: product.descricao,            
             is_new: product.is_new,
             is_best_seller: product.is_best_seller,
           }),
         })
+        console.log(res)
 
         clearTimeout(timeoutId)
         const json = await safeJson(res)
-
+        console.log(json)
         if (!res.ok) {
           if (handleAuthError(new Error(json?.error), res)) {
             throw new Error("Sessão expirada")
