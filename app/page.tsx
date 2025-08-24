@@ -303,40 +303,41 @@ export default function DliceEcommerce() {
 
       const message = `🍦 *PEDIDO MARENI SORVETES* 🍦
 
-👤 *CLIENTE:* ${deliveryInfo.name}
-📱 *TELEFONE:* ${deliveryInfo.phone}
+      👤 *CLIENTE:* ${deliveryInfo.name}
+      📱 *TELEFONE:* ${deliveryInfo.phone}
 
-${deliveryText}
+      ${deliveryText}
 
-🛒 *ITENS DO PEDIDO:*
-${items}
+      🛒 *ITENS DO PEDIDO:*
+      ${items}
 
-💰 *RESUMO FINANCEIRO:*
-Subtotal: R$ ${subtotal.toFixed(2)}
-${deliveryInfo.deliveryType === "retirada" ? "Entrega: Gratuita (Retirada)" : `Entrega: R$ ${taxaEntrega.toFixed(2)}`}
-*Total: R$ ${total.toFixed(2)}*
+      💰 *RESUMO FINANCEIRO:*
+      Subtotal: R$ ${subtotal.toFixed(2)}
+      ${deliveryInfo.deliveryType === "retirada" ? "Entrega: Gratuita (Retirada)" : `Entrega: R$ ${taxaEntrega.toFixed(2)}`}
+      *Total: R$ ${total.toFixed(2)}*
 
-💳 *FORMA DE PAGAMENTO:* ${deliveryInfo.paymentMethod}
-${deliveryInfo.paymentMethod === "Dinheiro" ? `💰 *TROCO PARA:* R$ ${deliveryInfo.changeFor}` : ""}
+      💳 *FORMA DE PAGAMENTO:* ${deliveryInfo.paymentMethod}
+      ${deliveryInfo.paymentMethod === "Dinheiro" ? `💰 *TROCO PARA:* R$ ${deliveryInfo.changeFor}` : ""}
 
-Obrigado pela preferência! 😊`
+      Obrigado pela preferência! 😊`
 
-      const encodedMessage = encodeURIComponent(message)
-      const whatsappUrl = `https://wa.me/5588996867186?text=${encodedMessage}`
+          // 🔑 força a string para UTF-8 antes de encodar
+          const utf8Message = Buffer.from(message, "utf-8").toString()
+          const encodedMessage = encodeURIComponent(utf8Message)
+          const whatsappUrl = `https://wa.me/5588996867186?text=${encodedMessage}`
 
-      // Abrir WhatsApp e limpar carrinho
-      window.open(whatsappUrl, "_blank")
+          window.open(whatsappUrl, "_blank")
 
-      // Limpar carrinho após sucesso
-      cart.forEach((item) => updateQuantity(item.id, 0))
-      setIsCheckoutOpen(false)
-    } catch (error) {
-      console.error("Erro ao processar pedido:", error)
-      alert("Erro ao processar pedido. Tente novamente.")
-    } finally {
-      setIsProcessingOrder(false)
-    }
-  }
+          // Limpar carrinho após sucesso
+          cart.forEach((item) => updateQuantity(item.id, 0))
+          setIsCheckoutOpen(false)
+        } catch (error) {
+          console.error("Erro ao processar pedido:", error)
+          alert("Erro ao processar pedido. Tente novamente.")
+        } finally {
+          setIsProcessingOrder(false)
+        }
+      }
 
   if (loading) {
     return (
