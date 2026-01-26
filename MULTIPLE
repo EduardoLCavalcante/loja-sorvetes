@@ -4,7 +4,13 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-const supabase = createClient(supabaseUrl!, supabaseKey!)
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("Missing Supabase environment variables")
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey)
+
 
 export async function GET() {
   const { data: products, error: productsError } = await supabase
@@ -22,14 +28,14 @@ export async function GET() {
     return NextResponse.json({ error: imagesError.message }, { status: 500 })
   }
 
-  const imgMap = new Map<string, string>()
+  const imgMap = new Map()
   for (const img of images || []) {
     if (img.file_name && img.public_url) {
       imgMap.set(img.file_name, img.public_url)
     }
   }
 
-  const out = (products || []).map((p: any) => {
+  const out = (products || []).map((p) => {
     const priceVal =
       p.preco != null
         ? Number(p.preco)
@@ -54,7 +60,7 @@ export async function GET() {
     }
   })
 
-  const catSet = new Set<string>()
+  const catSet = new Set()
   for (const p of out) {
     for (const c of p.categoria || []) {
       if (c) catSet.add(c)
