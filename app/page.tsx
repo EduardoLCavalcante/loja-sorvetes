@@ -381,8 +381,9 @@ Obrigado pela preferencia!`
 
           window.open(whatsappUrl, "_blank")
 
-          // Limpar carrinho após sucesso
+          // Limpar carrinho e adicionais após sucesso
           cart.forEach((item) => updateQuantity(item.id, 0))
+          setSelectedExtras({})
           setIsCheckoutOpen(false)
         } catch (error) {
           console.error("Erro ao processar pedido:", error)
