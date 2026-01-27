@@ -149,6 +149,44 @@ export default function DliceEcommerce() {
     deliveryType: "entrega", // Adicionado campo para tipo de entrega
     changeFor: "",
   })
+
+  // Adicionais disponíveis
+  const adicionais = [
+    { id: "casquinha", nome: "Casquinha", preco: 10, imagem: "/images/casquinha.jpeg" },
+    { id: "coberturas", nome: "Coberturas", preco: 10, imagem: "/images/coberturas.jpeg" },
+    { id: "tubetes", nome: "Tubetes", preco: 5, imagem: "/images/tubetes.jpeg" },
+    { id: "fracionados", nome: "Fracionados", preco: 5, imagem: "/images/fracionados.jpeg" },
+  ]
+
+  const [selectedExtras, setSelectedExtras] = useState<{ [key: string]: number }>({})
+
+  const toggleExtra = (extraId: string) => {
+    setSelectedExtras((prev) => {
+      if (prev[extraId]) {
+        const { [extraId]: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, [extraId]: 1 }
+    })
+  }
+
+  const updateExtraQuantity = (extraId: string, quantity: number) => {
+    if (quantity <= 0) {
+      setSelectedExtras((prev) => {
+        const { [extraId]: _, ...rest } = prev
+        return rest
+      })
+    } else {
+      setSelectedExtras((prev) => ({ ...prev, [extraId]: quantity }))
+    }
+  }
+
+  const getExtrasTotal = () => {
+    return Object.entries(selectedExtras).reduce((total, [extraId, qty]) => {
+      const extra = adicionais.find((a) => a.id === extraId)
+      return total + (extra ? extra.preco * qty : 0)
+    }, 0)
+  }
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({})
   const [productModal, setProductModal] = useState<ProductWithDefaults | null>(null)
   const [modalImageError, setModalImageError] = useState(false)
