@@ -149,6 +149,44 @@ export default function DliceEcommerce() {
     deliveryType: "entrega", // Adicionado campo para tipo de entrega
     changeFor: "",
   })
+
+  // Adicionais disponíveis
+  const adicionais = [
+    { id: "casquinha", nome: "Casquinha", preco: 10, imagem: "/images/casquinha.jpeg" },
+    { id: "coberturas", nome: "Coberturas", preco: 10, imagem: "/images/coberturas.jpeg" },
+    { id: "tubetes", nome: "Tubetes", preco: 5, imagem: "/images/tubetes.jpeg" },
+    { id: "fracionados", nome: "Fracionados", preco: 5, imagem: "/images/fracionados.jpeg" },
+  ]
+
+  const [selectedExtras, setSelectedExtras] = useState<{ [key: string]: number }>({})
+
+  const toggleExtra = (extraId: string) => {
+    setSelectedExtras((prev) => {
+      if (prev[extraId]) {
+        const { [extraId]: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, [extraId]: 1 }
+    })
+  }
+
+  const updateExtraQuantity = (extraId: string, quantity: number) => {
+    if (quantity <= 0) {
+      setSelectedExtras((prev) => {
+        const { [extraId]: _, ...rest } = prev
+        return rest
+      })
+    } else {
+      setSelectedExtras((prev) => ({ ...prev, [extraId]: quantity }))
+    }
+  }
+
+  const getExtrasTotal = () => {
+    return Object.entries(selectedExtras).reduce((total, [extraId, qty]) => {
+      const extra = adicionais.find((a) => a.id === extraId)
+      return total + (extra ? extra.preco * qty : 0)
+    }, 0)
+  }
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({})
   const [productModal, setProductModal] = useState<ProductWithDefaults | null>(null)
   const [modalImageError, setModalImageError] = useState(false)
@@ -293,34 +331,48 @@ export default function DliceEcommerce() {
         )
         .join("\n")
 
+      // Gerar lista de adicionais selecionados
+      const extrasItems = Object.entries(selectedExtras)
+        .filter(([_, qty]) => qty > 0)
+        .map(([extraId, qty]) => {
+          const extra = adicionais.find((a) => a.id === extraId)
+          if (!extra) return ""
+          return `• ${extra.nome} (${qty}x) - R$ ${(extra.preco * qty).toFixed(2)}`
+        })
+        .filter(Boolean)
+        .join("\n")
+
       const subtotal = getTotalPrice()
+      const extrasTotal = getExtrasTotal()
       const taxaEntrega = deliveryInfo.deliveryType === "retirada" ? 0 : getTaxaEntrega(deliveryInfo.neighborhood)
-      const total = subtotal + taxaEntrega
+      const total = subtotal + taxaEntrega + extrasTotal
 
       const deliveryText =
         deliveryInfo.deliveryType === "retirada"
-          ? "🏪 *RETIRADA NA LOJA*\nR. Idelfonso Solon de Freitas, 558 - Popular, Limoeiro do Norte - CE"
-          : `📍 *ENDEREÇO DE ENTREGA:*\n${deliveryInfo.address}${deliveryInfo.complement ? `, ${deliveryInfo.complement}` : ""}\n${deliveryInfo.neighborhood}, ${deliveryInfo.city}`
+          ? "RETIRADA NA LOJA\nR. Idelfonso Solon de Freitas, 558 - Popular, Limoeiro do Norte - CE"
+          : `ENDERECO DE ENTREGA:\n${deliveryInfo.address}${deliveryInfo.complement ? `, ${deliveryInfo.complement}` : ""}\n${deliveryInfo.neighborhood}, ${deliveryInfo.city}`
 
-      const message = `🍦 *PEDIDO MARENI SORVETES* 🍦
+      const extrasSection = extrasItems ? `\n\nADICIONAIS:\n${extrasItems}` : ""
 
-      👤 *CLIENTE:* ${deliveryInfo.name}
-      📱 *TELEFONE:* ${deliveryInfo.phone}
+      const message = `*PEDIDO DLICE SORVETES*
 
-      ${deliveryText}
+*CLIENTE:* ${deliveryInfo.name}
+*TELEFONE:* ${deliveryInfo.phone}
 
-      🛒 *ITENS DO PEDIDO:*
-      ${items}
+${deliveryText}
 
-      💰 *RESUMO FINANCEIRO:*
-      Subtotal: R$ ${subtotal.toFixed(2)}
-      ${deliveryInfo.deliveryType === "retirada" ? "Entrega: Gratuita (Retirada)" : `Entrega: R$ ${taxaEntrega.toFixed(2)}`}
-      *Total: R$ ${total.toFixed(2)}*
+*ITENS DO PEDIDO:*
+${items}${extrasSection}
 
-      💳 *FORMA DE PAGAMENTO:* ${deliveryInfo.paymentMethod}
-      ${deliveryInfo.paymentMethod === "Dinheiro" ? `💰 *TROCO PARA:* R$ ${deliveryInfo.changeFor}` : ""}
+*RESUMO FINANCEIRO:*
+Subtotal Produtos: R$ ${subtotal.toFixed(2)}${extrasTotal > 0 ? `\nAdicionais: R$ ${extrasTotal.toFixed(2)}` : ""}
+${deliveryInfo.deliveryType === "retirada" ? "Entrega: Gratuita (Retirada)" : `Entrega: R$ ${taxaEntrega.toFixed(2)}`}
+*TOTAL: R$ ${total.toFixed(2)}*
 
-      Obrigado pela preferência! 😊`
+*FORMA DE PAGAMENTO:* ${deliveryInfo.paymentMethod}
+${deliveryInfo.paymentMethod === "Dinheiro" ? `*TROCO PARA:* R$ ${deliveryInfo.changeFor}` : ""}
+
+Obrigado pela preferencia!`
 
           // 🔑 força a string para UTF-8 antes de encodar
           const utf8Message = Buffer.from(message, "utf-8").toString()
@@ -329,8 +381,9 @@ export default function DliceEcommerce() {
 
           window.open(whatsappUrl, "_blank")
 
-          // Limpar carrinho após sucesso
+          // Limpar carrinho e adicionais após sucesso
           cart.forEach((item) => updateQuantity(item.id, 0))
+          setSelectedExtras({})
           setIsCheckoutOpen(false)
         } catch (error) {
           console.error("Erro ao processar pedido:", error)
@@ -798,24 +851,101 @@ export default function DliceEcommerce() {
                         )}
                       </div>
 
-                      <div className="flex justify-between text-gray-600">
-                        <span>Entrega:</span>
-                        {(() => {
-                          if (deliveryInfo.deliveryType === "retirada") {
-                            return <span className="text-green-600 font-semibold">Gratuita (Retirada)</span>
-                          }
-                          const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
-                          return (
-                            <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
-                              {taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}
-                            </span>
-                          )
-                        })()}
+                      {/* Seção de Adicionais */}
+                      <div className="border-t border-orange-100 pt-6">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Adicionais (Opcional)</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {adicionais.map((adicional) => {
+                            const isSelected = selectedExtras[adicional.id] > 0
+                            const quantity = selectedExtras[adicional.id] || 0
+                            return (
+                              <div
+                                key={adicional.id}
+                                className={`relative rounded-xl border-2 overflow-hidden transition-all duration-200 ${
+                                  isSelected
+                                    ? "border-pink-500 bg-pink-50"
+                                    : "border-orange-100 bg-white hover:border-pink-200"
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExtra(adicional.id)}
+                                  className="w-full text-left"
+                                >
+                                  <div className="relative h-20 md:h-24">
+                                    <Image
+                                      src={adicional.imagem || "/placeholder.svg"}
+                                      alt={adicional.nome}
+                                      fill
+                                      className="object-cover"
+                                    />
+                                    {isSelected && (
+                                      <div className="absolute top-1 right-1 w-5 h-5 bg-pink-500 rounded-full flex items-center justify-center">
+                                        <span className="text-white text-xs font-bold">✓</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="p-2 text-center">
+                                    <p className="text-xs md:text-sm font-semibold text-gray-800">{adicional.nome}</p>
+                                    <p className="text-xs md:text-sm text-pink-600 font-bold">R$ {adicional.preco.toFixed(2)}</p>
+                                  </div>
+                                </button>
+                                {isSelected && (
+                                  <div className="flex items-center justify-center gap-2 pb-2 px-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => updateExtraQuantity(adicional.id, quantity - 1)}
+                                      className="w-6 h-6 rounded-full bg-pink-200 text-pink-700 flex items-center justify-center text-sm font-bold hover:bg-pink-300"
+                                    >
+                                      -
+                                    </button>
+                                    <span className="text-sm font-semibold w-4 text-center">{quantity}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateExtraQuantity(adicional.id, quantity + 1)}
+                                      className="w-6 h-6 rounded-full bg-pink-500 text-white flex items-center justify-center text-sm font-bold hover:bg-pink-600"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Resumo do Pedido */}
+                      <div className="border-t border-orange-100 pt-4 space-y-2">
+                        <div className="flex justify-between text-gray-600">
+                          <span>Subtotal produtos:</span>
+                          <span>R$ {getTotalPrice().toFixed(2)}</span>
+                        </div>
+                        {getExtrasTotal() > 0 && (
+                          <div className="flex justify-between text-gray-600">
+                            <span>Adicionais:</span>
+                            <span>R$ {getExtrasTotal().toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-gray-600">
+                          <span>Entrega:</span>
+                          {(() => {
+                            if (deliveryInfo.deliveryType === "retirada") {
+                              return <span className="text-green-600 font-semibold">Gratuita (Retirada)</span>
+                            }
+                            const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
+                            return (
+                              <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
+                                {taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}
+                              </span>
+                            )
+                          })()}
+                        </div>
                       </div>
                       {(() => {
                         const taxaEntrega =
                           deliveryInfo.deliveryType === "retirada" ? 0 : getTaxaEntrega(deliveryInfo.neighborhood)
-                        const totalComFrete = getTotalPrice() + taxaEntrega
+                        const totalComFrete = getTotalPrice() + taxaEntrega + getExtrasTotal()
                         return (
                           <div className="border-t border-gray-200 pt-3">
                             <div className="flex justify-between text-xl font-bold text-gray-800">
@@ -1032,7 +1162,7 @@ export default function DliceEcommerce() {
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg"
-                      }
+                       || "/placeholder.svg"}
                       alt={productModal.nome_exibicao || formatProductName(productModal.nome_produto)}
                       width={800}
                       height={800}
