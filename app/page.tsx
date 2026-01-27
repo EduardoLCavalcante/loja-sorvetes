@@ -331,34 +331,48 @@ export default function DliceEcommerce() {
         )
         .join("\n")
 
+      // Gerar lista de adicionais selecionados
+      const extrasItems = Object.entries(selectedExtras)
+        .filter(([_, qty]) => qty > 0)
+        .map(([extraId, qty]) => {
+          const extra = adicionais.find((a) => a.id === extraId)
+          if (!extra) return ""
+          return `• ${extra.nome} (${qty}x) - R$ ${(extra.preco * qty).toFixed(2)}`
+        })
+        .filter(Boolean)
+        .join("\n")
+
       const subtotal = getTotalPrice()
+      const extrasTotal = getExtrasTotal()
       const taxaEntrega = deliveryInfo.deliveryType === "retirada" ? 0 : getTaxaEntrega(deliveryInfo.neighborhood)
-      const total = subtotal + taxaEntrega
+      const total = subtotal + taxaEntrega + extrasTotal
 
       const deliveryText =
         deliveryInfo.deliveryType === "retirada"
-          ? "🏪 *RETIRADA NA LOJA*\nR. Idelfonso Solon de Freitas, 558 - Popular, Limoeiro do Norte - CE"
-          : `📍 *ENDEREÇO DE ENTREGA:*\n${deliveryInfo.address}${deliveryInfo.complement ? `, ${deliveryInfo.complement}` : ""}\n${deliveryInfo.neighborhood}, ${deliveryInfo.city}`
+          ? "RETIRADA NA LOJA\nR. Idelfonso Solon de Freitas, 558 - Popular, Limoeiro do Norte - CE"
+          : `ENDERECO DE ENTREGA:\n${deliveryInfo.address}${deliveryInfo.complement ? `, ${deliveryInfo.complement}` : ""}\n${deliveryInfo.neighborhood}, ${deliveryInfo.city}`
 
-      const message = `🍦 *PEDIDO MARENI SORVETES* 🍦
+      const extrasSection = extrasItems ? `\n\nADICIONAIS:\n${extrasItems}` : ""
 
-      👤 *CLIENTE:* ${deliveryInfo.name}
-      📱 *TELEFONE:* ${deliveryInfo.phone}
+      const message = `*PEDIDO DLICE SORVETES*
 
-      ${deliveryText}
+*CLIENTE:* ${deliveryInfo.name}
+*TELEFONE:* ${deliveryInfo.phone}
 
-      🛒 *ITENS DO PEDIDO:*
-      ${items}
+${deliveryText}
 
-      💰 *RESUMO FINANCEIRO:*
-      Subtotal: R$ ${subtotal.toFixed(2)}
-      ${deliveryInfo.deliveryType === "retirada" ? "Entrega: Gratuita (Retirada)" : `Entrega: R$ ${taxaEntrega.toFixed(2)}`}
-      *Total: R$ ${total.toFixed(2)}*
+*ITENS DO PEDIDO:*
+${items}${extrasSection}
 
-      💳 *FORMA DE PAGAMENTO:* ${deliveryInfo.paymentMethod}
-      ${deliveryInfo.paymentMethod === "Dinheiro" ? `💰 *TROCO PARA:* R$ ${deliveryInfo.changeFor}` : ""}
+*RESUMO FINANCEIRO:*
+Subtotal Produtos: R$ ${subtotal.toFixed(2)}${extrasTotal > 0 ? `\nAdicionais: R$ ${extrasTotal.toFixed(2)}` : ""}
+${deliveryInfo.deliveryType === "retirada" ? "Entrega: Gratuita (Retirada)" : `Entrega: R$ ${taxaEntrega.toFixed(2)}`}
+*TOTAL: R$ ${total.toFixed(2)}*
 
-      Obrigado pela preferência! 😊`
+*FORMA DE PAGAMENTO:* ${deliveryInfo.paymentMethod}
+${deliveryInfo.paymentMethod === "Dinheiro" ? `*TROCO PARA:* R$ ${deliveryInfo.changeFor}` : ""}
+
+Obrigado pela preferencia!`
 
           // 🔑 força a string para UTF-8 antes de encodar
           const utf8Message = Buffer.from(message, "utf-8").toString()
