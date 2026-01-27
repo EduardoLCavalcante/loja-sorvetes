@@ -1162,7 +1162,7 @@ Obrigado pela preferencia!`
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg"
-                      }
+                       || "/placeholder.svg"}
                       alt={productModal.nome_exibicao || formatProductName(productModal.nome_produto)}
                       width={800}
                       height={800}
