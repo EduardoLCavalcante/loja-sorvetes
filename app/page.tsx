@@ -836,24 +836,101 @@ export default function DliceEcommerce() {
                         )}
                       </div>
 
-                      <div className="flex justify-between text-gray-600">
-                        <span>Entrega:</span>
-                        {(() => {
-                          if (deliveryInfo.deliveryType === "retirada") {
-                            return <span className="text-green-600 font-semibold">Gratuita (Retirada)</span>
-                          }
-                          const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
-                          return (
-                            <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
-                              {taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}
-                            </span>
-                          )
-                        })()}
+                      {/* Seção de Adicionais */}
+                      <div className="border-t border-orange-100 pt-6">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Adicionais (Opcional)</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {adicionais.map((adicional) => {
+                            const isSelected = selectedExtras[adicional.id] > 0
+                            const quantity = selectedExtras[adicional.id] || 0
+                            return (
+                              <div
+                                key={adicional.id}
+                                className={`relative rounded-xl border-2 overflow-hidden transition-all duration-200 ${
+                                  isSelected
+                                    ? "border-pink-500 bg-pink-50"
+                                    : "border-orange-100 bg-white hover:border-pink-200"
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExtra(adicional.id)}
+                                  className="w-full text-left"
+                                >
+                                  <div className="relative h-20 md:h-24">
+                                    <Image
+                                      src={adicional.imagem || "/placeholder.svg"}
+                                      alt={adicional.nome}
+                                      fill
+                                      className="object-cover"
+                                    />
+                                    {isSelected && (
+                                      <div className="absolute top-1 right-1 w-5 h-5 bg-pink-500 rounded-full flex items-center justify-center">
+                                        <span className="text-white text-xs font-bold">✓</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="p-2 text-center">
+                                    <p className="text-xs md:text-sm font-semibold text-gray-800">{adicional.nome}</p>
+                                    <p className="text-xs md:text-sm text-pink-600 font-bold">R$ {adicional.preco.toFixed(2)}</p>
+                                  </div>
+                                </button>
+                                {isSelected && (
+                                  <div className="flex items-center justify-center gap-2 pb-2 px-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => updateExtraQuantity(adicional.id, quantity - 1)}
+                                      className="w-6 h-6 rounded-full bg-pink-200 text-pink-700 flex items-center justify-center text-sm font-bold hover:bg-pink-300"
+                                    >
+                                      -
+                                    </button>
+                                    <span className="text-sm font-semibold w-4 text-center">{quantity}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateExtraQuantity(adicional.id, quantity + 1)}
+                                      className="w-6 h-6 rounded-full bg-pink-500 text-white flex items-center justify-center text-sm font-bold hover:bg-pink-600"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Resumo do Pedido */}
+                      <div className="border-t border-orange-100 pt-4 space-y-2">
+                        <div className="flex justify-between text-gray-600">
+                          <span>Subtotal produtos:</span>
+                          <span>R$ {getTotalPrice().toFixed(2)}</span>
+                        </div>
+                        {getExtrasTotal() > 0 && (
+                          <div className="flex justify-between text-gray-600">
+                            <span>Adicionais:</span>
+                            <span>R$ {getExtrasTotal().toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-gray-600">
+                          <span>Entrega:</span>
+                          {(() => {
+                            if (deliveryInfo.deliveryType === "retirada") {
+                              return <span className="text-green-600 font-semibold">Gratuita (Retirada)</span>
+                            }
+                            const taxaEntrega = getTaxaEntrega(deliveryInfo.neighborhood)
+                            return (
+                              <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
+                                {taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}
+                              </span>
+                            )
+                          })()}
+                        </div>
                       </div>
                       {(() => {
                         const taxaEntrega =
                           deliveryInfo.deliveryType === "retirada" ? 0 : getTaxaEntrega(deliveryInfo.neighborhood)
-                        const totalComFrete = getTotalPrice() + taxaEntrega
+                        const totalComFrete = getTotalPrice() + taxaEntrega + getExtrasTotal()
                         return (
                           <div className="border-t border-gray-200 pt-3">
                             <div className="flex justify-between text-xl font-bold text-gray-800">
