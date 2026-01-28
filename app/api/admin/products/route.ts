@@ -342,8 +342,17 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "ID ausente." }, { status: 400, headers: noStoreHeaders })
     }
 
-    const { data, error } = await supabase.from("products").update(update).eq("id", id!).select("*").single()
-    if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: noStoreHeaders })
+    let productRow: any = null
+
+    if (Object.keys(update).length > 0) {
+      const { data, error } = await supabase.from("products").update(update).eq("id", id!).select("*").single()
+      if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: noStoreHeaders })
+      productRow = data
+    } else {
+      const { data, error } = await supabase.from("products").select("*").eq("id", id!).single()
+      if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: noStoreHeaders })
+      productRow = data
+    }
 
     if (categorias !== null) {
       // Remover relações existentes
@@ -390,7 +399,10 @@ export async function PATCH(req: Request) {
       .eq("id", id!)
       .single()
 
-    return NextResponse.json({ product: normalizeRow(url, productWithCategories || data) }, { headers: noStoreHeaders })
+    return NextResponse.json(
+      { product: normalizeRow(url, productWithCategories || productRow) },
+      { headers: noStoreHeaders },
+    )
   } catch (e: any) {
     console.error("PATCH /api/admin/products", e?.message || e)
     return NextResponse.json({ error: "Internal error" }, { status: 500, headers: noStoreHeaders })
