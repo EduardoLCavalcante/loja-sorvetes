@@ -419,6 +419,7 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState("")
   const [deletingMap, setDeletingMap] = useState<Record<number, boolean>>({})
+  const [categoryUpdatingMap, setCategoryUpdatingMap] = useState<Record<number, boolean>>({})
 
   // Debounce da busca para melhor performance
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
