@@ -215,17 +215,38 @@ const ProductRowDesktop = React.memo(
           </div>
         </td>
         <td className="p-3 align-top">
-          <div className="flex flex-wrap gap-1">
-            {product.categoria?.map((category, i) => (
-              <Badge
-                key={i}
-                variant="outline"
-                className="text-xs cursor-pointer hover:bg-red-50"
-                onClick={() => console.log(`Remove category ${category} from product ${product.id}`)}
-              >
-                {category} ×
-              </Badge>
-            ))}
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap gap-1">
+              {product.categoria?.map((category, i) => (
+                <Badge
+                  key={i}
+                  variant="outline"
+                  className={`text-xs cursor-pointer hover:bg-red-50 ${isUpdatingCategory ? "opacity-60 pointer-events-none" : ""}`}
+                  onClick={() => {
+                    if (!isUpdatingCategory) onRemoveCategory(product.id, category)
+                  }}
+                >
+                  {category} ×
+                </Badge>
+              ))}
+            </div>
+            <Select
+              onValueChange={(value) => onAddCategory(product.id, value)}
+              disabled={isUpdatingCategory || categoriesLoading}
+            >
+              <SelectTrigger className="h-9 w-44">
+                <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Adicionar categoria"} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableCategories
+                  .filter((category) => !product.categoria?.includes(category.name))
+                  .map((category) => (
+                    <SelectItem key={category.id} value={category.name}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
         </td>
         <td className="p-3 align-top">
@@ -374,8 +395,10 @@ const ProductCardMobile = React.memo(
                     <Badge
                       key={i}
                       variant="outline"
-                      className="text-xs cursor-pointer hover:bg-red-50"
-                      onClick={() => console.log(`Remove category ${category} from product ${product.id}`)}
+                      className={`text-xs cursor-pointer hover:bg-red-50 ${isUpdatingCategory ? "opacity-60 pointer-events-none" : ""}`}
+                      onClick={() => {
+                        if (!isUpdatingCategory) onRemoveCategory(product.id, category)
+                      }}
                     >
                       {category} ×
                     </Badge>
@@ -383,18 +406,20 @@ const ProductCardMobile = React.memo(
                 </div>
               )}
               <Select
-                onValueChange={(value) => console.log(`Add category ${value} to product ${product.id}`)}
-                disabled={false}
+                onValueChange={(value) => onAddCategory(product.id, value)}
+                disabled={isUpdatingCategory || categoriesLoading}
               >
                 <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Adicionar categoria" />
+                  <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Adicionar categoria"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCategories.map((category) => (
-                    <SelectItem key={category.id} value={category.name}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
+                  {availableCategories
+                    .filter((category) => !product.categoria?.includes(category.name))
+                    .map((category) => (
+                      <SelectItem key={category.id} value={category.name}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
