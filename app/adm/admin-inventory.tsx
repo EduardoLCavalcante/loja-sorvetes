@@ -652,23 +652,118 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
   }, [])
 
   const addCategoryToProduct = useCallback(
-    (productId: number, category: string) => {
+    async (productId: number, category: string) => {
       const product = products.find((p) => p.id === productId)
-      if (product && !product.categoria.includes(category)) {
-        updateLocal(productId, { categoria: [...product.categoria, category] })
+      if (!product) return
+      if (product.categoria.includes(category)) return
+
+      const previousCategories = product.categoria
+      const nextCategories = [...previousCategories, category]
+
+      setCategoryUpdatingMap((prev) => ({ ...prev, [productId]: true }))
+      setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: nextCategories } : p)))
+
+      try {
+        const headers = await authHeader()
+        if (!headers) {
+          setError("Não foi possível obter autorização. Faça login novamente.")
+          setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
+          return
+        }
+
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+        const res = await fetch("/api/admin/products", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...headers },
+          body: JSON.stringify({ id: productId, categoria: nextCategories }),
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+        const json = await safeJson(res)
+
+        if (!res.ok) {
+          if (handleAuthError(new Error(json?.error), res)) {
+            setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
+            return
+          }
+          throw new Error(json?.error || "Falha ao adicionar categoria.")
+        }
+
+        if (json?.product) {
+          setProducts((prev) => prev.map((p) => (p.id === productId ? json.product : p)))
+        }
+      } catch (e: any) {
+        setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
+        if (e.name === "AbortError") {
+          setError("Timeout: Adicionar categoria demorou muito. Verifique sua conexão e tente novamente.")
+        } else if (!handleAuthError(e)) {
+          setError(e?.message || "Erro ao adicionar categoria.")
+        }
+      } finally {
+        setCategoryUpdatingMap((prev) => ({ ...prev, [productId]: false }))
       }
     },
-    [products, updateLocal],
+    [products, authHeader, handleAuthError],
   )
 
   const removeCategoryFromProduct = useCallback(
-    (productId: number, categoryToRemove: string) => {
+    async (productId: number, categoryToRemove: string) => {
       const product = products.find((p) => p.id === productId)
-      if (product) {
-        updateLocal(productId, { categoria: product.categoria.filter((c) => c !== categoryToRemove) })
+      if (!product) return
+
+      const previousCategories = product.categoria
+      const nextCategories = previousCategories.filter((c) => c !== categoryToRemove)
+
+      setCategoryUpdatingMap((prev) => ({ ...prev, [productId]: true }))
+      setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: nextCategories } : p)))
+
+      try {
+        const headers = await authHeader()
+        if (!headers) {
+          setError("Não foi possível obter autorização. Faça login novamente.")
+          setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
+          return
+        }
+
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+        const res = await fetch("/api/admin/products", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...headers },
+          body: JSON.stringify({ id: productId, categoria: nextCategories }),
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+        const json = await safeJson(res)
+
+        if (!res.ok) {
+          if (handleAuthError(new Error(json?.error), res)) {
+            setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
+            return
+          }
+          throw new Error(json?.error || "Falha ao remover categoria.")
+        }
+
+        if (json?.product) {
+          setProducts((prev) => prev.map((p) => (p.id === productId ? json.product : p)))
+        }
+      } catch (e: any) {
+        setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
+        if (e.name === "AbortError") {
+          setError("Timeout: Remover categoria demorou muito. Verifique sua conexão e tente novamente.")
+        } else if (!handleAuthError(e)) {
+          setError(e?.message || "Erro ao remover categoria.")
+        }
+      } finally {
+        setCategoryUpdatingMap((prev) => ({ ...prev, [productId]: false }))
       }
     },
-    [products, updateLocal],
+    [products, authHeader, handleAuthError],
   )
 
   const createProduct = useCallback(async () => {
