@@ -1222,6 +1222,10 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
                       onRemove={deleteRow}
                       availableCategories={categories}
                       isRemoving={deletingMap[product.id]}
+                      onRemoveCategory={removeCategoryFromProduct}
+                      isUpdatingCategory={!!categoryUpdatingMap[product.id]}
+                      onAddCategory={addCategoryToProduct}
+                      categoriesLoading={categoriesLoading}
                     />
                   ))}
                 </TableBody>
@@ -1238,6 +1242,10 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
                   onRemove={deleteRow}
                   availableCategories={categories}
                   isRemoving={deletingMap[product.id]}
+                  onRemoveCategory={removeCategoryFromProduct}
+                  isUpdatingCategory={!!categoryUpdatingMap[product.id]}
+                  onAddCategory={addCategoryToProduct}
+                  categoriesLoading={categoriesLoading}
                 />
               ))}
             </div>
