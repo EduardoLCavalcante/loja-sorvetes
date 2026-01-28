@@ -152,12 +152,20 @@ const ProductRowDesktop = React.memo(
     onRemove,
     availableCategories,
     isRemoving,
+    onRemoveCategory,
+    isUpdatingCategory,
+    onAddCategory,
+    categoriesLoading,
   }: {
     product: Product
     onUpdateLocal: (id: number, patch: Partial<Product>) => void
     onRemove: (id: number) => void
     availableCategories: Category[]
     isRemoving: boolean
+    onRemoveCategory: (productId: number, category: string) => void
+    isUpdatingCategory: boolean
+    onAddCategory: (productId: number, category: string) => void
+    categoriesLoading: boolean
   }) => {
     const updateName = useCallback(
       (value: string) => onUpdateLocal(product.id, { nome_produto: value }),
@@ -261,12 +269,20 @@ const ProductCardMobile = React.memo(
     onRemove,
     availableCategories,
     isRemoving,
+    onRemoveCategory,
+    isUpdatingCategory,
+    onAddCategory,
+    categoriesLoading,
   }: {
     product: Product
     onUpdateLocal: (id: number, patch: Partial<Product>) => void
     onRemove: (id: number) => void
     availableCategories: Category[]
     isRemoving: boolean
+    onRemoveCategory: (productId: number, category: string) => void
+    isUpdatingCategory: boolean
+    onAddCategory: (productId: number, category: string) => void
+    categoriesLoading: boolean
   }) => {
     const updateName = useCallback(
       (value: string) => onUpdateLocal(product.id, { nome_produto: value }),
