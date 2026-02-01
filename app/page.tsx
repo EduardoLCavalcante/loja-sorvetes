@@ -391,6 +391,8 @@ Obrigado pela preferencia!`
       />
 
       <ProductModal
+        product={productModal}
+        onClose={() => setProductModal(null)}
         formatProductName={formatProductName}
         formatCategoryName={formatCategoryName}
         handleAddToCart={handleAddToCart}
