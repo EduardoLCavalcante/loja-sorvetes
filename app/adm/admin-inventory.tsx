@@ -152,12 +152,20 @@ const ProductRowDesktop = React.memo(
     onRemove,
     availableCategories,
     isRemoving,
+    onRemoveCategory,
+    isUpdatingCategory,
+    onAddCategory,
+    categoriesLoading,
   }: {
     product: Product
     onUpdateLocal: (id: number, patch: Partial<Product>) => void
     onRemove: (id: number) => void
     availableCategories: Category[]
     isRemoving: boolean
+    onRemoveCategory: (productId: number, category: string) => void
+    isUpdatingCategory: boolean
+    onAddCategory: (productId: number, category: string) => void
+    categoriesLoading: boolean
   }) => {
     const updateName = useCallback(
       (value: string) => onUpdateLocal(product.id, { nome_produto: value }),
@@ -207,17 +215,38 @@ const ProductRowDesktop = React.memo(
           </div>
         </td>
         <td className="p-3 align-top">
-          <div className="flex flex-wrap gap-1">
-            {product.categoria?.map((category, i) => (
-              <Badge
-                key={i}
-                variant="outline"
-                className="text-xs cursor-pointer hover:bg-red-50"
-                onClick={() => console.log(`Remove category ${category} from product ${product.id}`)}
-              >
-                {category} ×
-              </Badge>
-            ))}
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap gap-1">
+              {product.categoria?.map((category, i) => (
+                <Badge
+                  key={i}
+                  variant="outline"
+                  className={`text-xs cursor-pointer hover:bg-red-50 ${isUpdatingCategory ? "opacity-60 pointer-events-none" : ""}`}
+                  onClick={() => {
+                    if (!isUpdatingCategory) onRemoveCategory(product.id, category)
+                  }}
+                >
+                  {category} ×
+                </Badge>
+              ))}
+            </div>
+            <Select
+              onValueChange={(value) => onAddCategory(product.id, value)}
+              disabled={isUpdatingCategory || categoriesLoading}
+            >
+              <SelectTrigger className="h-9 w-44">
+                <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Adicionar categoria"} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableCategories
+                  .filter((category) => !product.categoria?.includes(category.name))
+                  .map((category) => (
+                    <SelectItem key={category.id} value={category.name}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
         </td>
         <td className="p-3 align-top">
@@ -261,12 +290,20 @@ const ProductCardMobile = React.memo(
     onRemove,
     availableCategories,
     isRemoving,
+    onRemoveCategory,
+    isUpdatingCategory,
+    onAddCategory,
+    categoriesLoading,
   }: {
     product: Product
     onUpdateLocal: (id: number, patch: Partial<Product>) => void
     onRemove: (id: number) => void
     availableCategories: Category[]
     isRemoving: boolean
+    onRemoveCategory: (productId: number, category: string) => void
+    isUpdatingCategory: boolean
+    onAddCategory: (productId: number, category: string) => void
+    categoriesLoading: boolean
   }) => {
     const updateName = useCallback(
       (value: string) => onUpdateLocal(product.id, { nome_produto: value }),
@@ -358,8 +395,10 @@ const ProductCardMobile = React.memo(
                     <Badge
                       key={i}
                       variant="outline"
-                      className="text-xs cursor-pointer hover:bg-red-50"
-                      onClick={() => console.log(`Remove category ${category} from product ${product.id}`)}
+                      className={`text-xs cursor-pointer hover:bg-red-50 ${isUpdatingCategory ? "opacity-60 pointer-events-none" : ""}`}
+                      onClick={() => {
+                        if (!isUpdatingCategory) onRemoveCategory(product.id, category)
+                      }}
                     >
                       {category} ×
                     </Badge>
@@ -367,18 +406,20 @@ const ProductCardMobile = React.memo(
                 </div>
               )}
               <Select
-                onValueChange={(value) => console.log(`Add category ${value} to product ${product.id}`)}
-                disabled={false}
+                onValueChange={(value) => onAddCategory(product.id, value)}
+                disabled={isUpdatingCategory || categoriesLoading}
               >
                 <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Adicionar categoria" />
+                  <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Adicionar categoria"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCategories.map((category) => (
-                    <SelectItem key={category.id} value={category.name}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
+                  {availableCategories
+                    .filter((category) => !product.categoria?.includes(category.name))
+                    .map((category) => (
+                      <SelectItem key={category.id} value={category.name}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -419,6 +460,7 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState("")
   const [deletingMap, setDeletingMap] = useState<Record<number, boolean>>({})
+  const [categoryUpdatingMap, setCategoryUpdatingMap] = useState<Record<number, boolean>>({})
 
   // Debounce da busca para melhor performance
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
@@ -651,23 +693,118 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
   }, [])
 
   const addCategoryToProduct = useCallback(
-    (productId: number, category: string) => {
+    async (productId: number, category: string) => {
       const product = products.find((p) => p.id === productId)
-      if (product && !product.categoria.includes(category)) {
-        updateLocal(productId, { categoria: [...product.categoria, category] })
+      if (!product) return
+      if (product.categoria.includes(category)) return
+
+      const previousCategories = product.categoria
+      const nextCategories = [...previousCategories, category]
+
+      setCategoryUpdatingMap((prev) => ({ ...prev, [productId]: true }))
+      setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: nextCategories } : p)))
+
+      try {
+        const headers = await authHeader()
+        if (!headers) {
+          setError("Não foi possível obter autorização. Faça login novamente.")
+          setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
+          return
+        }
+
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+        const res = await fetch("/api/admin/products", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...headers },
+          body: JSON.stringify({ id: productId, categoria: nextCategories }),
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+        const json = await safeJson(res)
+
+        if (!res.ok) {
+          if (handleAuthError(new Error(json?.error), res)) {
+            setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
+            return
+          }
+          throw new Error(json?.error || "Falha ao adicionar categoria.")
+        }
+
+        if (json?.product) {
+          setProducts((prev) => prev.map((p) => (p.id === productId ? json.product : p)))
+        }
+      } catch (e: any) {
+        setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
+        if (e.name === "AbortError") {
+          setError("Timeout: Adicionar categoria demorou muito. Verifique sua conexão e tente novamente.")
+        } else if (!handleAuthError(e)) {
+          setError(e?.message || "Erro ao adicionar categoria.")
+        }
+      } finally {
+        setCategoryUpdatingMap((prev) => ({ ...prev, [productId]: false }))
       }
     },
-    [products, updateLocal],
+    [products, authHeader, handleAuthError],
   )
 
   const removeCategoryFromProduct = useCallback(
-    (productId: number, categoryToRemove: string) => {
+    async (productId: number, categoryToRemove: string) => {
       const product = products.find((p) => p.id === productId)
-      if (product) {
-        updateLocal(productId, { categoria: product.categoria.filter((c) => c !== categoryToRemove) })
+      if (!product) return
+
+      const previousCategories = product.categoria
+      const nextCategories = previousCategories.filter((c) => c !== categoryToRemove)
+
+      setCategoryUpdatingMap((prev) => ({ ...prev, [productId]: true }))
+      setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: nextCategories } : p)))
+
+      try {
+        const headers = await authHeader()
+        if (!headers) {
+          setError("Não foi possível obter autorização. Faça login novamente.")
+          setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
+          return
+        }
+
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+        const res = await fetch("/api/admin/products", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...headers },
+          body: JSON.stringify({ id: productId, categoria: nextCategories }),
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+        const json = await safeJson(res)
+
+        if (!res.ok) {
+          if (handleAuthError(new Error(json?.error), res)) {
+            setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
+            return
+          }
+          throw new Error(json?.error || "Falha ao remover categoria.")
+        }
+
+        if (json?.product) {
+          setProducts((prev) => prev.map((p) => (p.id === productId ? json.product : p)))
+        }
+      } catch (e: any) {
+        setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
+        if (e.name === "AbortError") {
+          setError("Timeout: Remover categoria demorou muito. Verifique sua conexão e tente novamente.")
+        } else if (!handleAuthError(e)) {
+          setError(e?.message || "Erro ao remover categoria.")
+        }
+      } finally {
+        setCategoryUpdatingMap((prev) => ({ ...prev, [productId]: false }))
       }
     },
-    [products, updateLocal],
+    [products, authHeader, handleAuthError],
   )
 
   const createProduct = useCallback(async () => {
@@ -1085,6 +1222,10 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
                       onRemove={deleteRow}
                       availableCategories={categories}
                       isRemoving={deletingMap[product.id]}
+                      onRemoveCategory={removeCategoryFromProduct}
+                      isUpdatingCategory={!!categoryUpdatingMap[product.id]}
+                      onAddCategory={addCategoryToProduct}
+                      categoriesLoading={categoriesLoading}
                     />
                   ))}
                 </TableBody>
@@ -1101,6 +1242,10 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
                   onRemove={deleteRow}
                   availableCategories={categories}
                   isRemoving={deletingMap[product.id]}
+                  onRemoveCategory={removeCategoryFromProduct}
+                  isUpdatingCategory={!!categoryUpdatingMap[product.id]}
+                  onAddCategory={addCategoryToProduct}
+                  categoriesLoading={categoriesLoading}
                 />
               ))}
             </div>

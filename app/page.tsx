@@ -1,47 +1,16 @@
 "use client"
-
-import { useState, useEffect, useMemo } from "react"
-import Image from "next/image"
-import { motion, AnimatePresence } from "framer-motion"
+import { useEffect, useMemo, useState } from "react"
 import { useCart } from "./context/CartContext"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Search, ShoppingCart, Plus, Minus, X, Star, Clock, MapPin, Phone } from "lucide-react"
-import Mapa from "@/components/Mapa/Mapa"
-
-// Tipos
-type ProductRecord = {
-  id: number
-  nome_produto: string
-  descricao?: string | null
-  price: number
-  original_price?: number | null
-  categoria: string[]
-  caminho: string
-  is_new?: boolean
-  is_best_seller?: boolean
-  image_url?: string | null
-  stock: number // Adicionado campo stock
-}
-
-type ProductWithDefaults = {
-  id: number
-  nome_produto: string
-  nome_exibicao?: string
-  descricao?: string | null
-  price: number
-  originalPrice: number
-  categoria: string[]
-  caminho: string
-  isNew: boolean
-  isBestSeller: boolean
-  image_url?: string | null
-  stock: number // Adicionado campo stock
-}
+import ProductModal from "@/components/ProductModal/ProductModal"
+import { bairrosTaxas } from "@/lib/data/deliveryZones"
+import HeaderSection from "@/components/home/HeaderSection"
+import HeroSection from "@/components/home/HeroSection"
+import ProductsSection from "@/components/home/ProductsSection"
+import FloatingCartButton from "@/components/home/FloatingCartButton"
+import LoadingState from "@/components/home/LoadingState"
+import ErrorState from "@/components/home/ErrorState"
+import CheckoutModalExtended from "@/components/home/CheckoutModalExtended"
+import { type ProductRecord, type ProductWithDefaults } from "@/types/product"
 
 const formatProductName = (name: string) =>
   name
@@ -67,64 +36,6 @@ const formatCategoryName = (category: string | string[]) => {
     return category.map((cat) => categoryNames[cat] || cat).join(", ")
   }
   return categoryNames[category] || category
-}
-
-// Mapeamento dos bairros e suas taxas
-const bairrosTaxas: { [bairro: string]: number } = {
-  "ANTÔNIO HOLANDA": 4,
-  ARRAIAL: 8,
-  "ARRAIAL DA LAMBADA": 8,
-  "ARRAIAL DE BAIXO": 8,
-  "BOA FÉ": 4,
-  "BOM FIM": 5,
-  "BOM JESUS": 4,
-  "BOM JESUS DO CRUZEIRO": 10,
-  "BOM NOME": 4,
-  BROTALÂNDIA: 3,
-  CANAFISTULA: 8,
-  CENTRO: 3,
-  "CIDADE ALTA": 8,
-  "CJ FLORES": 4,
-  "CJ HABITAR BRASIL": 4,
-  "CÓRREGO DE AREIA": 8,
-  "DR JOSÉ SIMOES": 3,
-  "JOÃO XXIII": 3,
-  LIMOEIRINHO: 5,
-  "LIMOEIRO ALTO": 5,
-  "LUIZ ALVES": 4,
-  MILAGRES: 5,
-  "MONSENHOR OTÁVIO": 3,
-  MORROS: 4,
-  PITOMBEIRA: 3,
-  POPULARES: 3,
-  QUIXABA: 5,
-  "SANTA LUZIA": 4,
-  "SÃO RAIMUNDO": 8,
-  "SÍTIO ILHAS": 5,
-  SOBRADO: 4,
-  SOCORRO: 4,
-  TRIÂNGULO: 8,
-  "VÁRZEA DO COBRA": 8,
-  "VILA TETEU": 5,
-  EUCALIPTOS: 3,
-};
-
-
-function getTaxaEntrega(bairro: string) {
-  if (!bairro) return 0
-  const normalize = (str: string) =>
-    str
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toUpperCase()
-      .trim()
-  const bairroNormalizado = normalize(bairro)
-  for (const nome in bairrosTaxas) {
-    if (normalize(nome) === bairroNormalizado) {
-      return bairrosTaxas[nome]
-    }
-  }
-  return 0
 }
 
 export default function DliceEcommerce() {
@@ -182,17 +93,38 @@ export default function DliceEcommerce() {
     }
   }
 
+  // Normaliza o id (string ou número) para número antes de atualizar a quantidade no carrinho
+  const handleUpdateQuantity = (id: string | number, quantity: number) => {
+    updateQuantity(Number(id), quantity)
+  }
+
   const getExtrasTotal = () => {
     return Object.entries(selectedExtras).reduce((total, [extraId, qty]) => {
       const extra = adicionais.find((a) => a.id === extraId)
       return total + (extra ? extra.preco * qty : 0)
     }, 0)
   }
+
+    function getTaxaEntrega(bairro: string) {
+      if (!bairro) return 0
+      const normalize = (str: string) =>
+        str
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toUpperCase()
+          .trim()
+      const bairroNormalizado = normalize(bairro)
+      for (const nome in bairrosTaxas) {
+        if (normalize(nome) === bairroNormalizado) {
+          return bairrosTaxas[nome]
+        }
+      }
+      return 0
+    }
+
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({})
   const [productModal, setProductModal] = useState<ProductWithDefaults | null>(null)
   const [modalImageError, setModalImageError] = useState(false)
-  const mobileModalView =
-    "max-sm:max-h-[70%] max-sm:max-w-[90vw] max-sm:my-auto max-sm:mx-auto max-sm:px-4 max-sm:rounded-2xl"
   const [isProcessingOrder, setIsProcessingOrder] = useState(false)
   // Load products from Supabase API route
   useEffect(() => {
@@ -395,28 +327,11 @@ Obrigado pela preferencia!`
       }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Carregando produtos deliciosos...</p>
-        </div>
-      </div>
-    )
+    return <LoadingState />
   }
 
   if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50 flex items-center justify-center px-4">
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow p-6 max-w-md text-center">
-          <p className="text-red-600 font-semibold mb-2">Erro</p>
-          <p className="text-gray-700 mb-4">{error}</p>
-          <Button onClick={() => location.reload()} className="bg-pink-600 text-white">
-            Tentar novamente
-          </Button>
-        </div>
-      </div>
-    )
+    return <ErrorState message={error} onRetry={() => location.reload()} />
   }
 
   return (
@@ -1221,138 +1136,68 @@ Obrigado pela preferencia!`
           )}
         </DialogContent>
       </Dialog>
+      <HeaderSection
+        searchTerm={searchTerm}
+        onSearchChange={(value) => setSearchTerm(value)}
+        totalItems={getTotalItems()}
+        onCartOpen={() => setIsCartOpen(true)}
+        categories={categories}
+        selectedCategory={selectedCategory}
+        onSelectCategory={(category) => setSelectedCategory(category)}
+        formatCategoryName={formatCategoryName}
+      />
+
+      <HeroSection productsCount={products.length} />
+
+      <ProductsSection
+        selectedCategory={selectedCategory}
+        groupedProducts={groupedProducts}
+        filteredProducts={filteredProducts}
+        formatCategoryName={formatCategoryName}
+        formatProductName={formatProductName}
+        handleAddToCart={handleAddToCart}
+        openProductModal={openProductModal}
+        imageErrors={imageErrors}
+        setImageErrors={setImageErrors}
+      />
+
+      <FloatingCartButton
+        visible={showFloatingCart}
+        totalItems={getTotalItems()}
+        totalPrice={getTotalPrice()}
+        onCartOpen={() => setIsCartOpen(true)}
+      />
+
+      <CheckoutModalExtended
+        isCartOpen={isCartOpen}
+        setIsCartOpen={setIsCartOpen}
+        isCheckoutOpen={isCheckoutOpen}
+        setIsCheckoutOpen={setIsCheckoutOpen}
+        cart={cart}
+        updateQuantity={handleUpdateQuantity}
+        imageErrors={imageErrors}
+        setImageErrors={setImageErrors}
+        getTotalItems={getTotalItems}
+        getTotalPrice={getTotalPrice}
+        deliveryInfo={deliveryInfo}
+        setDeliveryInfo={setDeliveryInfo}
+        selectedExtras={selectedExtras}
+        toggleExtra={toggleExtra}
+        updateExtraQuantity={updateExtraQuantity}
+        getExtrasTotal={getExtrasTotal}
+        adicionais={adicionais}
+        getTaxaEntrega={getTaxaEntrega}
+        generateWhatsAppMessage={generateWhatsAppMessage}
+        isProcessingOrder={isProcessingOrder}
+      />
+
+      <ProductModal
+        product={productModal}
+        onClose={() => setProductModal(null)}
+        formatProductName={formatProductName}
+        formatCategoryName={formatCategoryName}
+        handleAddToCart={handleAddToCart}
+      />
     </div>
-  )
-}
-
-function ProductCard({
-  product,
-  onAddToCart,
-  onOpen,
-  imageErrors,
-  setImageErrors,
-}: {
-  product: ProductWithDefaults
-  onAddToCart: (product: ProductWithDefaults) => void
-  onOpen: (product: ProductWithDefaults) => void
-  imageErrors: { [key: number]: boolean }
-  setImageErrors: (errors: { [key: number]: boolean }) => void
-}) {
-  const displayName = product.nome_exibicao || formatProductName(product.nome_produto)
-  const isOutOfStock = product.stock <= 0 // Verificar se está fora de estoque
-
-  return (
-    <motion.div whileHover={{ y: -8, scale: 1.02 }} className="group">
-      <Card
-        className={`overflow-hidden border-0 shadow-xl hover:shadow-2xl transition-all duration-500 bg-white/90 backdrop-blur-sm group-hover:bg-white h-full ${isOutOfStock ? "opacity-60 grayscale" : ""}`}
-      >
-        {/* Área clicável para abrir o modal (imagem) */}
-        <div
-          className={`relative ${!isOutOfStock ? "cursor-pointer" : "cursor-not-allowed"}`}
-          onClick={() => !isOutOfStock && onOpen(product)}
-        >
-          {!imageErrors[product.id] ? (
-            <Image
-              src={product.image_url || "/placeholder.svg?height=400&width=400&query=produto%20sorvete"}
-              alt={displayName}
-              width={400}
-              height={400}
-              unoptimized
-              className={`w-full h-64 object-cover transition-transform duration-500 ${!isOutOfStock ? "group-hover:scale-110" : ""}`}
-              onError={() => setImageErrors({ ...imageErrors, [product.id]: true })}
-            />
-          ) : (
-            <div
-              className={`w-full h-64 bg-gradient-to-br from-orange-100 via-pink-100 to-amber-100 flex items-center justify-center transition-transform duration-500 ${!isOutOfStock ? "group-hover:scale-110" : ""}`}
-            >
-              <div className="text-center">
-                <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-pink-300 to-orange-300 rounded-full flex items-center justify-center">
-                  <span className="text-3xl">🍦</span>
-                </div>
-                <p className="text-gray-500 text-sm font-medium">{displayName}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Badges */}
-          <div className="absolute top-3 left-3 flex flex-col space-y-2">
-            {isOutOfStock ? (
-              <Badge className="bg-gray-500 text-white font-semibold">FORA DE ESTOQUE</Badge>
-            ) : (
-              <>
-                {product.isNew && <Badge className="bg-green-500 text-white font-semibold">NOVO</Badge>}
-                {product.isBestSeller && <Badge className="bg-orange-500 text-white font-semibold">MAIS VENDIDO</Badge>}
-              </>
-            )}
-          </div>
-
-          {/* Discount Badge */}
-          {!isOutOfStock && product.originalPrice > product.price && (
-            <Badge className="absolute top-3 right-3 bg-red-500 text-white font-bold">
-              -{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
-            </Badge>
-          )}
-        </div>
-
-        <CardContent className="p-6 flex flex-col flex-grow">
-          <div className="flex items-center justify-between mb-2">
-            <Badge variant="outline" className="text-xs font-medium border-orange-200 text-pink-600">
-              {formatCategoryName(product.categoria)}
-            </Badge>
-            {!isOutOfStock && (
-              <div className="flex items-center space-x-1">
-                <Star className="w-4 h-4 text-yellow-400 fill-current" />
-              </div>
-            )}
-          </div>
-
-          {/* Título/descrição também abrem o modal */}
-          <div
-            className={`${!isOutOfStock ? "cursor-pointer" : "cursor-not-allowed"}`}
-            onClick={() => !isOutOfStock && onOpen(product)}
-          >
-            <h3
-              className={`text-lg font-bold mb-2 text-gray-800 transition-colors ${!isOutOfStock ? "group-hover:text-pink-600" : ""}`}
-            >
-              {displayName}
-            </h3>
-            <p className="text-gray-600 mb-4 text-sm leading-relaxed line-clamp-2 flex-grow">
-              {product.descricao || `Delicioso ${displayName} feito com ingredientes premium selecionados.`}
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between mt-auto">
-            <div className="flex flex-col">
-              <div className="flex items-center space-x-2">
-                <span className="text-2xl font-bold text-pink-600">R$ {product.price.toFixed(2)}</span>
-                {!isOutOfStock && product.originalPrice > product.price && (
-                  <span className="text-sm text-gray-400 line-through">R$ {product.originalPrice.toFixed(2)}</span>
-                )}
-              </div>
-            </div>
-
-            <motion.button
-              whileHover={!isOutOfStock ? { scale: 1.05 } : {}}
-              whileTap={!isOutOfStock ? { scale: 0.95 } : {}}
-              data-product-id={product.id}
-              onClick={(e: any) => {
-                e.stopPropagation()
-                if (!isOutOfStock) onAddToCart(product)
-              }}
-              disabled={isOutOfStock}
-              className={`px-6 py-3 rounded-2xl transition-all duration-300 shadow-lg flex items-center space-x-2 font-semibold ${
-                isOutOfStock
-                  ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                  : "bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 hover:from-pink-600 hover:via-rose-600 hover:to-pink-700 text-white hover:shadow-xl"
-              }`}
-            >
-              <Plus className="w-4 h-4 max-sm:hidden" />
-              <ShoppingCart className="w-4 h-4 sm:hidden" />
-              <span className="max-sm:hidden">{isOutOfStock ? "Indisponível" : "Adicionar"}</span>
-            </motion.button>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
   )
 }
