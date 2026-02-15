@@ -11,7 +11,7 @@ import LoadingState from "@/components/home/LoadingState"
 import ErrorState from "@/components/home/ErrorState"
 import CheckoutModalExtended from "@/components/home/CheckoutModalExtended"
 import { type ProductRecord, type ProductWithDefaults } from "@/types/product"
-
+import { adicionais } from "@/lib/data/extra"
 const formatProductName = (name: string) =>
   name
     .replace(/-/g, " ")
@@ -62,13 +62,7 @@ export default function DliceEcommerce() {
   })
 
   // Adicionais disponíveis
-  const adicionais = [
-    { id: "casquinha", nome: "Casquinha", preco: 10, imagem: "/images/casquinha.jpeg" },
-    { id: "coberturas", nome: "Coberturas", preco: 10, imagem: "/images/coberturas.jpeg" },
-    { id: "tubetes", nome: "Tubetes", preco: 5, imagem: "/images/tubetes.jpeg" },
-    { id: "fracionados", nome: "Fracionados", preco: 5, imagem: "/images/fracionados.jpeg" },
-    { id: "fini", nome: "Fini", preco: 15, imagem: "/images/fini.jpeg" },
-  ]
+
 
   const [selectedExtras, setSelectedExtras] = useState<{ [key: string]: number }>({})
 
