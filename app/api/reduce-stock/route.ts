@@ -13,30 +13,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Items são obrigatórios" }, { status: 400 })
     }
 
+    const errors: string[] = []
+
     for (const item of items) {
       const { id, quantity } = item
 
-      // Buscar estoque atual
-      const { data: product, error: fetchError } = await supabase.from("products").select("stock").eq("id", id).single()
-
-      if (fetchError) {
-        console.error("Erro ao buscar produto:", fetchError)
+      if (!id || !quantity || quantity <= 0) {
+        errors.push(`Item inválido: ${JSON.stringify(item)}`)
         continue
       }
 
-      // Calcular novo estoque (não permitir negativo)
-      const newStock = Math.max(0, (product.stock || 0) - quantity)
+      // Operação atômica: GREATEST(stock - quantity, 0) em um único UPDATE
+      // Elimina race condition entre leitura e escrita
+      const { error } = await supabase.rpc("reduce_product_stock", {
+        product_id: Number(id),
+        reduce_by: Number(quantity),
+      })
 
-      // Atualizar estoque
-      const { error: updateError } = await supabase.from("products").update({ stock: newStock }).eq("id", id)
-
-      if (updateError) {
-        console.error("Erro ao atualizar estoque:", updateError)
+      if (error) {
+        console.error(`Erro ao reduzir estoque do produto ${id}:`, error)
+        errors.push(`Produto ${id}: ${error.message}`)
       }
     }
 
     return NextResponse.json(
-      { success: true },
+      { success: true, errors: errors.length > 0 ? errors : undefined },
       {
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
