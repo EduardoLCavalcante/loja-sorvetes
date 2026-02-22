@@ -9,9 +9,9 @@ import ProductsSection from "@/components/home/ProductsSection"
 import FloatingCartButton from "@/components/home/FloatingCartButton"
 import LoadingState from "@/components/home/LoadingState"
 import ErrorState from "@/components/home/ErrorState"
-import CheckoutModalExtended from "@/components/home/CheckoutModalExtended"
 import { type ProductRecord, type ProductWithDefaults } from "@/types/product"
 import { adicionais } from "@/lib/data/extra"
+import CheckoutModal from "@/components/CheckoutModal/CheckoutModal"
 const formatProductName = (name: string) =>
   name
     .replace(/-/g, " ")
@@ -362,7 +362,7 @@ Obrigado pela preferencia!`
         onCartOpen={() => setIsCartOpen(true)}
       />
 
-      <CheckoutModalExtended
+      <CheckoutModal
         isCartOpen={isCartOpen}
         setIsCartOpen={setIsCartOpen}
         isCheckoutOpen={isCheckoutOpen}

@@ -1,12 +1,11 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import React, { useState } from 'react'
+import React from 'react'
 import { Button } from '../ui/button'
 import { Minus, Phone, Plus, ShoppingCart, X } from 'lucide-react'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
 import Mapa from '../Mapa/Mapa'
 import Image from 'next/image'
-import { bairrosTaxas } from '@/lib/data/deliveryZones'
 
 type DeliveryInfo = {
   name: string
@@ -44,6 +43,11 @@ type CheckoutModalProps = {
   getTotalPrice: () => number
   generateWhatsAppMessage: () => void
   isProcessingOrder: boolean
+  selectedExtras: { [key: string]: number }
+  toggleExtra: (extraId: string) => void
+  updateExtraQuantity: (extraId: string, quantity: number) => void
+  getExtrasTotal: () => number
+  adicionais: { id: string; nome: string; preco: number; imagem: string }[]
 }
 
 
@@ -54,58 +58,6 @@ const CheckoutModal = (props: CheckoutModalProps) => {
   .replace(/\b\w/g, (l) => l.toUpperCase())
   .replace(/Dlice/gi, "")
   .trim()
-  const [selectedExtras, setSelectedExtras] = useState<{ [key: string]: number }>({})
-    const toggleExtra = (extraId: string) => {
-    setSelectedExtras((prev) => {
-      if (prev[extraId]) {
-        const { [extraId]: _, ...rest } = prev
-        return rest
-      }
-      return { ...prev, [extraId]: 1 }
-    })
-  }
-    const updateExtraQuantity = (extraId: string, quantity: number) => {
-    if (quantity <= 0) {
-      setSelectedExtras((prev) => {
-        const { [extraId]: _, ...rest } = prev
-        return rest
-      })
-    } else {
-      setSelectedExtras((prev) => ({ ...prev, [extraId]: quantity }))
-    }
-  }
-    const getExtrasTotal = () => {
-      return Object.entries(selectedExtras).reduce((total, [extraId, qty]) => {
-        const extra = adicionais.find((a) => a.id === extraId)
-        return total + (extra ? extra.preco * qty : 0)
-      }, 0)
-    }
-    
-    function getTaxaEntrega(bairro: string) {
-      if (!bairro) return 0
-      const normalize = (str: string) =>
-        str
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .toUpperCase()
-          .trim()
-      const bairroNormalizado = normalize(bairro)
-      for (const nome in bairrosTaxas) {
-        if (normalize(nome) === bairroNormalizado) {
-          return bairrosTaxas[nome]
-        }
-      }
-      return 0
-    }
-    
-    const adicionais = [
-    { id: "casquinha", nome: "Casquinha", preco: 10, imagem: "/images/casquinha.jpeg" },
-    { id: "coberturas", nome: "Coberturas", preco: 10, imagem: "/images/coberturas.jpeg" },
-    { id: "tubetes", nome: "Tubetes", preco: 5, imagem: "/images/tubetes.jpeg" },
-    { id: "fracionados", nome: "Fracionados", preco: 5, imagem: "/images/fracionados.jpeg" },
-    { id: "Fini", nome: "Fini", preco: 15, imagem: "/images/fini.jpeg" },
-  ]
-
   return (
     <>
         <AnimatePresence>
@@ -300,9 +252,9 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                       <div className="border-t border-orange-100 pt-6">
                         <h3 className="text-lg font-semibold text-gray-800 mb-4">Adicionais (Opcional)</h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                          {adicionais.map((adicional) => {
-                            const isSelected = selectedExtras[adicional.id] > 0
-                            const quantity = selectedExtras[adicional.id] || 0
+                          {props.adicionais.map((adicional) => {
+                            const isSelected = props.selectedExtras[adicional.id] > 0
+                            const quantity = props.selectedExtras[adicional.id] || 0
                             return (
                               <div
                                 key={adicional.id}
@@ -314,7 +266,7 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                               >
                                 <button
                                   type="button"
-                                  onClick={() => toggleExtra(adicional.id)}
+                                  onClick={() => props.toggleExtra(adicional.id)}
                                   className="w-full text-left"
                                 >
                                   <div className="relative h-20 md:h-24">
@@ -339,7 +291,7 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                                   <div className="flex items-center justify-center gap-2 pb-2 px-2">
                                     <button
                                       type="button"
-                                      onClick={() => updateExtraQuantity(adicional.id, quantity - 1)}
+                                      onClick={() => props.updateExtraQuantity(adicional.id, quantity - 1)}
                                       className="w-6 h-6 rounded-full bg-pink-200 text-pink-700 flex items-center justify-center text-sm font-bold hover:bg-pink-300"
                                     >
                                       -
@@ -347,7 +299,7 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                                     <span className="text-sm font-semibold w-4 text-center">{quantity}</span>
                                     <button
                                       type="button"
-                                      onClick={() => updateExtraQuantity(adicional.id, quantity + 1)}
+                                      onClick={() => props.updateExtraQuantity(adicional.id, quantity + 1)}
                                       className="w-6 h-6 rounded-full bg-pink-500 text-white flex items-center justify-center text-sm font-bold hover:bg-pink-600"
                                     >
                                       +
@@ -366,10 +318,10 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                           <span>Subtotal produtos:</span>
                           <span>R$ {props.getTotalPrice().toFixed(2)}</span>
                         </div>
-                        {getExtrasTotal() > 0 && (
+                        {props.getExtrasTotal() > 0 && (
                           <div className="flex justify-between text-gray-600">
                             <span>Adicionais:</span>
-                            <span>R$ {getExtrasTotal().toFixed(2)}</span>
+                            <span>R$ {props.getExtrasTotal().toFixed(2)}</span>
                           </div>
                         )}
                         <div className="flex justify-between text-gray-600">
@@ -378,7 +330,7 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                             if (props.deliveryInfo.deliveryType === "retirada") {
                               return <span className="text-green-600 font-semibold">Gratuita (Retirada)</span>
                             }
-                            const taxaEntrega = getTaxaEntrega(props.deliveryInfo.neighborhood)
+                            const taxaEntrega = props.getTaxaEntrega(props.deliveryInfo.neighborhood)
                             return (
                               <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
                                 {taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}
@@ -389,8 +341,8 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                       </div>
                       {(() => {
                         const taxaEntrega =
-                          props.deliveryInfo.deliveryType === "retirada" ? 0 : getTaxaEntrega(props.deliveryInfo.neighborhood)
-                        const totalComFrete = props.getTotalPrice() + taxaEntrega + getExtrasTotal()
+                          props.deliveryInfo.deliveryType === "retirada" ? 0 : props.getTaxaEntrega(props.deliveryInfo.neighborhood)
+                        const totalComFrete = props.getTotalPrice() + taxaEntrega + props.getExtrasTotal()
                         return (
                           <div className="border-t border-gray-200 pt-3">
                             <div className="flex justify-between text-xl font-bold text-gray-800">
