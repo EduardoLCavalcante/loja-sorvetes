@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useCart } from "./context/CartContext"
 import ProductModal from "@/components/ProductModal/ProductModal"
-import { bairrosTaxas } from "@/lib/data/deliveryZones"
+import { getTaxaEntrega } from "@/lib/utils/delivery"
 import HeaderSection from "@/components/home/HeaderSection"
 import HeroSection from "@/components/home/HeroSection"
 import ProductsSection from "@/components/home/ProductsSection"
@@ -11,6 +11,7 @@ import LoadingState from "@/components/home/LoadingState"
 import ErrorState from "@/components/home/ErrorState"
 import { type ProductRecord, type ProductWithDefaults } from "@/types/product"
 import { adicionais } from "@/lib/data/extra"
+import { ALL_CATEGORIES } from "@/lib/constants"
 import CheckoutModal from "@/components/CheckoutModal/CheckoutModal"
 const formatProductName = (name: string) =>
   name
@@ -42,11 +43,11 @@ export default function DliceEcommerce() {
   const { cart, addToCart, updateQuantity, getTotalPrice, getTotalItems } = useCart()
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState("Todos")
+  const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES)
   const [searchTerm, setSearchTerm] = useState("")
   const [showFloatingCart, setShowFloatingCart] = useState(false)
   const [products, setProducts] = useState<ProductWithDefaults[]>([])
-  const [categories, setCategories] = useState<string[]>(["Todos"])
+  const [categories, setCategories] = useState<string[]>([ALL_CATEGORIES])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deliveryInfo, setDeliveryInfo] = useState({
@@ -99,23 +100,6 @@ export default function DliceEcommerce() {
     }, 0)
   }
 
-    function getTaxaEntrega(bairro: string) {
-      if (!bairro) return 0
-      const normalize = (str: string) =>
-        str
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .toUpperCase()
-          .trim()
-      const bairroNormalizado = normalize(bairro)
-      for (const nome in bairrosTaxas) {
-        if (normalize(nome) === bairroNormalizado) {
-          return bairrosTaxas[nome]
-        }
-      }
-      return 0
-    }
-
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({})
   const [productModal, setProductModal] = useState<ProductWithDefaults | null>(null)
   const [modalImageError, setModalImageError] = useState(false)
@@ -155,7 +139,7 @@ export default function DliceEcommerce() {
         }
         for (const c of catsFromApi) catSet.add(c)
 
-        setCategories(["Todos", ...Array.from(catSet)])
+        setCategories([ALL_CATEGORIES, ...Array.from(catSet)])
       } catch (e: any) {
         console.error(e)
         setError(e?.message || "Erro ao carregar produtos.")
@@ -172,7 +156,7 @@ export default function DliceEcommerce() {
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      const matchesCategory = selectedCategory === "Todos" || product.categoria.includes(selectedCategory)
+      const matchesCategory = selectedCategory === ALL_CATEGORIES || product.categoria.includes(selectedCategory)
       const matchesSearch = (product.nome_exibicao ? product.nome_exibicao : formatProductName(product.nome_produto))
         .toLowerCase()
         .includes(searchTerm.toLowerCase())
@@ -182,7 +166,7 @@ export default function DliceEcommerce() {
 
   const groupedProducts = useMemo(() => {
     return categories
-      .filter((cat) => cat !== "Todos")
+      .filter((cat) => cat !== ALL_CATEGORIES)
       .reduce(
         (acc, category) => {
           const filtered = products
@@ -304,7 +288,8 @@ Obrigado pela preferencia!`
           // 🔑 força a string para UTF-8 antes de encodar
           const utf8Message = Buffer.from(message, "utf-8").toString()
           const encodedMessage = encodeURIComponent(utf8Message)
-          const whatsappUrl = `https://wa.me/5588996867186?text=${encodedMessage}`
+          const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "5588996867186"
+          const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`
 
           window.open(whatsappUrl, "_blank")
 

@@ -1,11 +1,12 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import React from 'react'
+import React, { useState } from 'react'
 import { Button } from '../ui/button'
 import { Minus, Phone, Plus, ShoppingCart, X } from 'lucide-react'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
 import Mapa from '../Mapa/Mapa'
 import Image from 'next/image'
+import { checkoutSchema } from '@/lib/schemas/checkout'
 
 type DeliveryInfo = {
   name: string
@@ -58,6 +59,24 @@ const CheckoutModal = (props: CheckoutModalProps) => {
   .replace(/\b\w/g, (l) => l.toUpperCase())
   .replace(/Dlice/gi, "")
   .trim()
+
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+
+  const handleSubmit = () => {
+    const result = checkoutSchema.safeParse(props.deliveryInfo)
+    if (!result.success) {
+      const errors: Record<string, string> = {}
+      for (const issue of result.error.issues) {
+        const key = issue.path[0] as string
+        if (!errors[key]) errors[key] = issue.message
+      }
+      setFormErrors(errors)
+      return
+    }
+    setFormErrors({})
+    props.generateWhatsAppMessage()
+  }
+
   return (
     <>
         <AnimatePresence>
@@ -105,8 +124,9 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                             value={props.deliveryInfo.name}
                             onChange={(e) => props.setDeliveryInfo({ ...props.deliveryInfo, name: e.target.value })}
                             placeholder="Seu nome completo"
-                            className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
+                            className={`mt-2 p-3 rounded-xl border-2 focus:border-pink-300 ${formErrors.name ? "border-red-300" : "border-orange-100"}`}
                           />
+                          {formErrors.name && <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>}
                         </div>
 
                         <div>
@@ -118,8 +138,9 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                             value={props.deliveryInfo.phone}
                             onChange={(e) => props.setDeliveryInfo({ ...props.deliveryInfo, phone: e.target.value })}
                             placeholder="(11) 99999-9999"
-                            className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
+                            className={`mt-2 p-3 rounded-xl border-2 focus:border-pink-300 ${formErrors.phone ? "border-red-300" : "border-orange-100"}`}
                           />
+                          {formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}
                         </div>
                       </div>
 
@@ -132,8 +153,9 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                           value={props.deliveryInfo.address}
                           onChange={(e) => props.setDeliveryInfo({ ...props.deliveryInfo, address: e.target.value })}
                           placeholder="Rua, número"
-                          className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
+                          className={`mt-2 p-3 rounded-xl border-2 focus:border-pink-300 ${formErrors.address ? "border-red-300" : "border-orange-100"}`}
                         />
+                        {formErrors.address && <p className="text-red-500 text-xs mt-1">{formErrors.address}</p>}
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -354,15 +376,8 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                       })()}
 
                       <Button
-                        onClick={props.generateWhatsAppMessage}
-                        disabled={
-                          props.isProcessingOrder ||
-                          !props.deliveryInfo.name ||
-                          !props.deliveryInfo.phone ||
-                          (props.deliveryInfo.deliveryType !== "retirada" &&
-                            (!props.deliveryInfo.address || !props.deliveryInfo.neighborhood || !props.deliveryInfo.city)) ||
-                          (props.deliveryInfo.paymentMethod === "Dinheiro" && !props.deliveryInfo.changeFor)
-                        }
+                        onClick={handleSubmit}
+                        disabled={props.isProcessingOrder}
                         className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl text-lg font-semibold flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {props.isProcessingOrder ? (
@@ -448,7 +463,6 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                               alt={formatProductName(item.nome_produto)}
                               width={80}
                               height={80}
-                              unoptimized
                               className="w-20 h-20 object-cover rounded-xl"
                               onError={() => props.setImageErrors((prev) => ({ ...prev, [item.id]: true }))}
                             />

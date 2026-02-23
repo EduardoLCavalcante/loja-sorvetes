@@ -43,7 +43,6 @@ const ProductCard = ({
               alt={displayName}
               width={400}
               height={400}
-              unoptimized
               className={`w-full h-64 object-cover transition-transform duration-500 ${!isOutOfStock ? "group-hover:scale-110" : ""}`}
               onError={() => setImageErrors({ ...imageErrors, [product.id]: true })}
             />
@@ -118,7 +117,7 @@ const ProductCard = ({
               whileHover={!isOutOfStock ? { scale: 1.05 } : {}}
               whileTap={!isOutOfStock ? { scale: 0.95 } : {}}
               data-product-id={product.id}
-              onClick={(event) => {
+              onClick={(event: React.MouseEvent) => {
                 event.stopPropagation()
                 if (!isOutOfStock) onAddToCart(product)
               }}

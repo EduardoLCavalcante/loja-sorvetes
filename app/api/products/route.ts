@@ -1,35 +1,11 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { unstable_noStore as noStore } from "next/cache"
+import { parsePrice } from "@/lib/utils/pricing"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
-
-function parsePrice(input: unknown): number | null {
-  if (input === null || input === undefined) return null
-  if (typeof input === "number" && Number.isFinite(input)) return input
-
-  const raw = String(input).trim()
-  if (!raw) return null
-
-  // Remove "R$", espaços e caracteres não numéricos (exceto . , -)
-  let s = raw.replace(/[Rr]\$|\s/g, "")
-
-  // Se tiver ponto e vírgula, assume "." como milhar e "," como decimal -> remove pontos e troca vírgula por ponto
-  if (s.includes(",") && s.includes(".")) {
-    s = s.replace(/\./g, "").replace(/,/g, ".")
-  } else if (s.includes(",")) {
-    // Só vírgula -> decimal pt-BR
-    s = s.replace(/,/g, ".")
-  }
-
-  // Remover quaisquer caracteres restantes que não sejam dígitos, ponto ou sinal
-  s = s.replace(/[^0-9.-]/g, "")
-
-  const n = Number.parseFloat(s)
-  return Number.isFinite(n) ? n : null
-}
 
 export async function GET() {
   try {
