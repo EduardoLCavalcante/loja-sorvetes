@@ -54,7 +54,6 @@ const ProductModal = (props: ProductModalProps) => {
                     alt={product.nome_exibicao || formatProductName(product.nome_produto)}
                     width={800}
                     height={800}
-                    unoptimized
                     className="w-full h-auto object-cover"
                     onError={() => setModalImageError(true)}
                   />

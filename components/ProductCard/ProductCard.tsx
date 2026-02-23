@@ -43,7 +43,6 @@ const ProductCard = ({
               alt={displayName}
               width={400}
               height={400}
-              unoptimized
               className={`w-full h-64 object-cover transition-transform duration-500 ${!isOutOfStock ? "group-hover:scale-110" : ""}`}
               onError={() => setImageErrors({ ...imageErrors, [product.id]: true })}
             />

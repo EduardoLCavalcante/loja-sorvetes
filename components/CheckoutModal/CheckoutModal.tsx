@@ -463,7 +463,6 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                               alt={formatProductName(item.nome_produto)}
                               width={80}
                               height={80}
-                              unoptimized
                               className="w-20 h-20 object-cover rounded-xl"
                               onError={() => props.setImageErrors((prev) => ({ ...prev, [item.id]: true }))}
                             />
