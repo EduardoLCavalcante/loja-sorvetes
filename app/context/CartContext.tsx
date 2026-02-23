@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useReducer, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useReducer, type ReactNode } from "react"
 
 interface Product {
   id: number
@@ -78,8 +78,26 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
   }
 }
 
+const CART_STORAGE_KEY = "dlice-cart"
+
+function getInitialState(): CartState {
+  if (typeof window === "undefined") return { items: [] }
+  try {
+    const saved = localStorage.getItem(CART_STORAGE_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed.items)) return parsed
+    }
+  } catch {}
+  return { items: [] }
+}
+
 export const CartProvider = ({ children }: { children: ReactNode }) => {
-  const [state, dispatch] = useReducer(cartReducer, { items: [] })
+  const [state, dispatch] = useReducer(cartReducer, undefined, getInitialState)
+
+  useEffect(() => {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state))
+  }, [state])
 
   const addToCart = (product: Omit<Product, "quantity">) => {
     dispatch({ type: "ADD_TO_CART", payload: product })
