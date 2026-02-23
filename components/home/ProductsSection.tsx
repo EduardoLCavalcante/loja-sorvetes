@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import ProductCard from "@/components/ProductCard/ProductCard"
 import { type ProductWithDefaults } from "@/types/product"
 import { type Dispatch, type SetStateAction } from "react"
+import { ALL_CATEGORIES } from "@/lib/constants"
 
 type ProductsSectionProps = {
   selectedCategory: string
@@ -27,7 +28,7 @@ const ProductsSection = ({
   imageErrors,
   setImageErrors,
 }: ProductsSectionProps) => {
-  if (selectedCategory === "Todos") {
+  if (selectedCategory === ALL_CATEGORIES) {
     return (
       <section className="py-12 px-4">
         <div className="container mx-auto">
