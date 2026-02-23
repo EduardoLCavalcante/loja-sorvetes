@@ -288,7 +288,8 @@ Obrigado pela preferencia!`
           // 🔑 força a string para UTF-8 antes de encodar
           const utf8Message = Buffer.from(message, "utf-8").toString()
           const encodedMessage = encodeURIComponent(utf8Message)
-          const whatsappUrl = `https://wa.me/5588996867186?text=${encodedMessage}`
+          const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "5588996867186"
+          const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`
 
           window.open(whatsappUrl, "_blank")
 

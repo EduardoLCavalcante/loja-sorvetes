@@ -181,7 +181,6 @@ export async function POST(req: Request) {
       is_new,
       is_best_seller,
     }
-    console.log(payload)
 
     const { data: inserted, error: insErr } = await supabase.from("products").insert(payload).select("*").single()
     if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500, headers: noStoreHeaders })

@@ -117,7 +117,7 @@ const ProductCard = ({
               whileHover={!isOutOfStock ? { scale: 1.05 } : {}}
               whileTap={!isOutOfStock ? { scale: 0.95 } : {}}
               data-product-id={product.id}
-              onClick={(event) => {
+              onClick={(event: React.MouseEvent) => {
                 event.stopPropagation()
                 if (!isOutOfStock) onAddToCart(product)
               }}
