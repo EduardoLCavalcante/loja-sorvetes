@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useCart } from "./context/CartContext"
 import ProductModal from "@/components/ProductModal/ProductModal"
-import { bairrosTaxas } from "@/lib/data/deliveryZones"
+import { getTaxaEntrega } from "@/lib/utils/delivery"
 import HeaderSection from "@/components/home/HeaderSection"
 import HeroSection from "@/components/home/HeroSection"
 import ProductsSection from "@/components/home/ProductsSection"
@@ -98,23 +98,6 @@ export default function DliceEcommerce() {
       return total + (extra ? extra.preco * qty : 0)
     }, 0)
   }
-
-    function getTaxaEntrega(bairro: string) {
-      if (!bairro) return 0
-      const normalize = (str: string) =>
-        str
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .toUpperCase()
-          .trim()
-      const bairroNormalizado = normalize(bairro)
-      for (const nome in bairrosTaxas) {
-        if (normalize(nome) === bairroNormalizado) {
-          return bairrosTaxas[nome]
-        }
-      }
-      return 0
-    }
 
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({})
   const [productModal, setProductModal] = useState<ProductWithDefaults | null>(null)

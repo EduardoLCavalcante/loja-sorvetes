@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { unstable_noStore as noStore } from "next/cache"
 import { createClient } from "@supabase/supabase-js"
 import sharp from "sharp"
+import { parsePrice } from "@/lib/utils/pricing"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -31,19 +32,6 @@ async function requireUser(req: Request) {
     return { ok: false as const, status: 401, message: "Invalid token." }
   }
   return { ok: true as const, url }
-}
-
-function parsePrice(input: unknown): number | null {
-  if (input === null || input === undefined) return null
-  if (typeof input === "number" && Number.isFinite(input)) return input
-  let s = String(input).trim()
-  if (!s) return null
-  s = s.replace(/[Rr]\$|\s/g, "")
-  if (s.includes(",") && s.includes(".")) s = s.replace(/\./g, "").replace(/,/g, ".")
-  else if (s.includes(",")) s = s.replace(/,/g, ".")
-  s = s.replace(/[^0-9.-]/g, "")
-  const n = Number.parseFloat(s)
-  return Number.isFinite(n) ? n : null
 }
 
 function slugify(input: string) {
