@@ -52,11 +52,9 @@ export default function DliceEcommerce() {
   const [error, setError] = useState<string | null>(null)
   const [deliveryInfo, setDeliveryInfo] = useState({
     name: "",
-    phone: "",
     address: "",
     complement: "",
     neighborhood: "",
-    city: "",
     paymentMethod: "",
     deliveryType: "entrega", // Adicionado campo para tipo de entrega
     changeFor: "",
@@ -261,14 +259,13 @@ export default function DliceEcommerce() {
       const deliveryText =
         deliveryInfo.deliveryType === "retirada"
           ? "RETIRADA NA LOJA\nR. Idelfonso Solon de Freitas, 558 - Popular, Limoeiro do Norte - CE"
-          : `ENDERECO DE ENTREGA:\n${deliveryInfo.address}${deliveryInfo.complement ? `, ${deliveryInfo.complement}` : ""}\n${deliveryInfo.neighborhood}, ${deliveryInfo.city}`
+          : `ENDERECO DE ENTREGA:\n${deliveryInfo.address}${deliveryInfo.complement ? `, ${deliveryInfo.complement}` : ""}\n${deliveryInfo.neighborhood}`
 
       const extrasSection = extrasItems ? `\n\nADICIONAIS:\n${extrasItems}` : ""
 
       const message = `*PEDIDO DLICE SORVETES*
 
 *CLIENTE:* ${deliveryInfo.name}
-*TELEFONE:* ${deliveryInfo.phone}
 
 ${deliveryText}
 

@@ -10,8 +10,6 @@ import { checkoutSchema } from '@/lib/schemas/checkout'
 
 type DeliveryInfo = {
   name: string
-  phone: string
-  city: string
   paymentMethod: string
   changeFor: string
   complement: string
@@ -62,13 +60,22 @@ const CheckoutModal = (props: CheckoutModalProps) => {
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
+  const fieldLabels: Record<string, string> = {
+    name: "Nome",
+    address: "Endereço",
+    neighborhood: "Bairro",
+    
+    paymentMethod: "Forma de Pagamento",
+    changeFor: "Troco",
+  }
+
   const handleSubmit = () => {
     const result = checkoutSchema.safeParse(props.deliveryInfo)
     if (!result.success) {
       const errors: Record<string, string> = {}
       for (const issue of result.error.issues) {
         const key = issue.path[0] as string
-        if (!errors[key]) errors[key] = issue.message
+        if (!errors[key]) errors[key] = fieldLabels[key] || key
       }
       setFormErrors(errors)
       return
@@ -128,20 +135,6 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                           />
                           {formErrors.name && <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>}
                         </div>
-
-                        <div>
-                          <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">
-                            Telefone
-                          </Label>
-                          <Input
-                            id="phone"
-                            value={props.deliveryInfo.phone}
-                            onChange={(e) => props.setDeliveryInfo({ ...props.deliveryInfo, phone: e.target.value })}
-                            placeholder="(11) 99999-9999"
-                            className={`mt-2 p-3 rounded-xl border-2 focus:border-pink-300 ${formErrors.phone ? "border-red-300" : "border-orange-100"}`}
-                          />
-                          {formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}
-                        </div>
                       </div>
 
                       <div>
@@ -181,22 +174,10 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                             value={props.deliveryInfo.neighborhood}
                             onChange={(e) => props.setDeliveryInfo({ ...props.deliveryInfo, neighborhood: e.target.value })}
                             placeholder="Seu bairro"
-                            className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
+                            className={`mt-2 p-3 rounded-xl border-2 focus:border-pink-300 ${formErrors.neighborhood ? "border-red-300" : "border-orange-100"}`}
                           />
+                          {formErrors.neighborhood && <p className="text-red-500 text-xs mt-1">{formErrors.neighborhood}</p>}
                         </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="city" className="text-sm font-semibold text-gray-700">
-                          Cidade
-                        </Label>
-                        <Input
-                          id="city"
-                          value={props.deliveryInfo.city}
-                          onChange={(e) => props.setDeliveryInfo({ ...props.deliveryInfo, city: e.target.value })}
-                          placeholder="Sua cidade"
-                          className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
-                        />
                       </div>
 
                       <div>
@@ -207,7 +188,7 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                           id="paymentMethod"
                           value={props.deliveryInfo.paymentMethod}
                           onChange={(e) => props.setDeliveryInfo({ ...props.deliveryInfo, paymentMethod: e.target.value })}
-                          className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300 w-full bg-white"
+                          className={`mt-2 p-3 rounded-xl border-2 focus:border-pink-300 w-full bg-white ${formErrors.paymentMethod ? "border-red-300" : "border-orange-100"}`}
                           required
                         >
                           <option value="">Selecione</option>
@@ -216,6 +197,7 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                           <option value="Cartão(Débito)">Cartão (Débito)</option>
                           <option value="Cartão(Crédito)">Cartão (Crédito)</option>
                         </select>
+                        {formErrors.paymentMethod && <p className="text-red-500 text-xs mt-1">{formErrors.paymentMethod}</p>}
                       </div>
                       {props.deliveryInfo.paymentMethod === "Dinheiro" && (
                         <div>
@@ -227,8 +209,9 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                             value={props.deliveryInfo.changeFor}
                             onChange={(e) => props.setDeliveryInfo({ ...props.deliveryInfo, changeFor: e.target.value })}
                             placeholder="R$ 50,00"
-                            className="mt-2 p-3 rounded-xl border-2 border-orange-100 focus:border-pink-300"
+                            className={`mt-2 p-3 rounded-xl border-2 focus:border-pink-300 ${formErrors.changeFor ? "border-red-300" : "border-orange-100"}`}
                           />
+                          {formErrors.changeFor && <p className="text-red-500 text-xs mt-1">{formErrors.changeFor}</p>}
                         </div>
                       )}
 
@@ -374,6 +357,21 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                           </div>
                         )
                       })()}
+                    
+                      {Object.keys(formErrors).length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-red-50 border border-red-200 rounded-xl p-4"
+                        >
+                          <p className="text-red-700 font-semibold text-sm">
+                            {Object.keys(formErrors).length === 1
+                              ? `O campo "${Object.values(formErrors)[0]}" precisa ser preenchido corretamente.`
+                              : `Os campos a seguir precisam ser preenchidos corretamente: ${Object.values(formErrors).join(", ")}.`
+                            }
+                          </p>
+                        </motion.div>
+                      )}
 
                       <Button
                         onClick={handleSubmit}
