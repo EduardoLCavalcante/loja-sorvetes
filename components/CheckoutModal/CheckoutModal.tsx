@@ -367,7 +367,7 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                         <motion.div
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="bg-red-50 border border-red-200 rounded-xl p-4"
+                          className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4"
                         >
                           <p className="text-red-700 font-semibold text-sm">
                             {Object.keys(formErrors).length === 1
@@ -378,29 +378,32 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                         </motion.div>
                       )}
 
-                      <Button
-                        onClick={handleSubmit}
-                        disabled={props.isProcessingOrder || !isFormValid}
-                        className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl text-lg font-semibold flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {props.isProcessingOrder ? (
-                          <>
-                            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            <span>Processando Pedido...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Phone className="w-6 h-6" />
-                            <span>Enviar Pedido via WhatsApp</span>
-                          </>
-                        )}
-                      </Button>
+                      {/* --- NOVO CONTAINER STICKY PARA O BOTÃO --- */}
+                      <div className="sticky bottom-0 bg-white pt-4 pb-2 space-y-4 border-t border-orange-100 z-10 -mx-6 px-6 -mb-6 md:-mx-8 md:px-8 md:-mb-8 rounded-b-3xl">
+                        <Button
+                          onClick={handleSubmit}
+                          disabled={props.isProcessingOrder || !isFormValid}
+                          className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl text-lg font-semibold flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {props.isProcessingOrder ? (
+                            <>
+                              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <span>Processando Pedido...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Phone className="w-6 h-6" />
+                              <span>Enviar Pedido via WhatsApp</span>
+                            </>
+                          )}
+                        </Button>
 
-                      <p className="text-center text-sm text-gray-500">
-                        {!isFormValid 
-                          ? "Preencha todos os campos obrigatórios primeiro" 
-                          : "Você será redirecionado para o WhatsApp para confirmar seu pedido"}
-                      </p>
+                        <p className="text-center text-sm text-gray-500">
+                          {!isFormValid 
+                            ? "Preencha todos os campos obrigatórios primeiro" 
+                            : "Você será redirecionado para o WhatsApp para confirmar seu pedido"}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
