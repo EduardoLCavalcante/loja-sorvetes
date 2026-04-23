@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Button } from '../ui/button'
 import { Minus, Phone, Plus, ShoppingCart, X } from 'lucide-react'
 import { Label } from '../ui/label'
@@ -59,6 +59,11 @@ const CheckoutModal = (props: CheckoutModalProps) => {
   .trim()
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+
+  const isFormValid = useMemo(() => {
+    const result = checkoutSchema.safeParse(props.deliveryInfo)
+    return result.success
+  }, [props.deliveryInfo])
 
   const fieldLabels: Record<string, string> = {
     name: "Nome",
@@ -375,7 +380,7 @@ const CheckoutModal = (props: CheckoutModalProps) => {
 
                       <Button
                         onClick={handleSubmit}
-                        disabled={props.isProcessingOrder}
+                        disabled={props.isProcessingOrder || !isFormValid}
                         className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl text-lg font-semibold flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {props.isProcessingOrder ? (
@@ -392,7 +397,9 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                       </Button>
 
                       <p className="text-center text-sm text-gray-500">
-                        Você será redirecionado para o WhatsApp para confirmar seu pedido
+                        {!isFormValid 
+                          ? "Preencha todos os campos obrigatórios primeiro" 
+                          : "Você será redirecionado para o WhatsApp para confirmar seu pedido"}
                       </p>
                     </div>
                   </div>
