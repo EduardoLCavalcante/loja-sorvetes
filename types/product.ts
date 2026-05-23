@@ -9,7 +9,6 @@ export type ProductRecord = {
   is_new?: boolean
   is_best_seller?: boolean
   image_url?: string | null
-  stock: number
 }
 
 export type ProductWithDefaults = {
@@ -24,5 +23,4 @@ export type ProductWithDefaults = {
   isNew: boolean
   isBestSeller: boolean
   image_url?: string | null
-  stock: number
 }

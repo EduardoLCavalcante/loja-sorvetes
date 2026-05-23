@@ -124,7 +124,6 @@ export default function DliceEcommerce() {
             originalPrice: original,
             isNew: !!p.is_new,
             isBestSeller: !!p.is_best_seller,
-            stock: p.stock || 0, // Mapeando campo stock da API
           }
         })
 
@@ -184,8 +183,6 @@ export default function DliceEcommerce() {
   }, [categories, products, searchTerm])
 
   const handleAddToCart = (product: ProductWithDefaults) => {
-    if (product.stock <= 0) return
-
     const safeProduct = {
       id: product.id,
       nome_produto: product.nome_produto,
@@ -204,8 +201,6 @@ export default function DliceEcommerce() {
   }
 
   const openProductModal = (p: ProductWithDefaults) => {
-    if (p.stock <= 0) return
-
     setProductModal(p)
     setModalImageError(false)
   }
@@ -214,24 +209,6 @@ export default function DliceEcommerce() {
     setIsProcessingOrder(true)
 
     try {
-      // Reduzir estoque dos produtos
-      const response = await fetch("/api/reduce-stock", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          items: cart.map((item) => ({
-            id: item.id,
-            quantity: item.quantity,
-          })),
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Erro ao processar pedido")
-      }
-
       // Gerar mensagem do WhatsApp
       const items = cart
         .map(

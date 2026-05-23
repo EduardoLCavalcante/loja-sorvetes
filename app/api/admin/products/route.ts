@@ -8,6 +8,9 @@ export const dynamic = "force-dynamic"
 export const revalidate = 0
 export const fetchCache = "force-no-store"
 
+const PRODUCTS_BUCKET = "products"
+const DEFAULT_CATEGORY = "Geral"
+
 const noStoreHeaders: Record<string, string> = {
   "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
   Pragma: "no-cache",
@@ -15,23 +18,59 @@ const noStoreHeaders: Record<string, string> = {
   "Content-Type": "application/json; charset=utf-8",
 }
 
-async function requireUser(req: Request) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+type AuthResult =
+  | { ok: true; url: string }
+  | { ok: false; status: number; message: string }
+
+type ProductUpdate = {
+  nome_produto?: string
+  descricao?: string | null
+  price?: number
+  original_price?: number
+  caminho?: string
+  is_new?: boolean
+  is_best_seller?: boolean
+}
+
+type MoneyParseResult = { ok: true; value?: number } | { ok: false; error: string }
+type CategoriesParseResult = { ok: true; categories: string[] } | { ok: false; error: string }
+type UpdateBuildResult = { ok: true; update: ProductUpdate; categorias: string[] | null } | { ok: false; error: string }
+
+async function requireUser(req: Request): Promise<AuthResult> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
   if (!url || !anon) {
-    return { ok: false as const, status: 500, message: "Supabase env not configured." }
+    return { ok: false, status: 500, message: "Supabase env not configured." }
   }
+
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization")
   if (!authHeader || !/^Bearer\s+/i.test(authHeader)) {
-    return { ok: false as const, status: 401, message: "Missing bearer token." }
+    return { ok: false, status: 401, message: "Missing bearer token." }
   }
+
   const accessToken = authHeader.replace(/^Bearer\s+/i, "").trim()
-  const userClient = createClient(url, anon, { global: { headers: { Authorization: `Bearer ${accessToken}` } } })
+  const userClient = createClient(url, anon, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+  })
   const { data, error } = await userClient.auth.getUser()
+
   if (error || !data?.user) {
-    return { ok: false as const, status: 401, message: "Invalid token." }
+    return { ok: false, status: 401, message: "Invalid token." }
   }
-  return { ok: true as const, url }
+
+  return { ok: true, url }
+}
+
+function jsonError(error: string, status: number) {
+  return NextResponse.json({ error }, { status, headers: noStoreHeaders })
+}
+
+function getAdminClient(url: string) {
+  const service = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!service) return null
+
+  return createClient(url, service)
 }
 
 function slugify(input: string) {
@@ -43,15 +82,33 @@ function slugify(input: string) {
     .replace(/(^-|-$)+/g, "")
 }
 
+function normalizeStoragePath(value: unknown) {
+  if (typeof value !== "string") return null
+  const path = value.trim()
+  if (!path) return null
+
+  const marker = `/storage/v1/object/public/${PRODUCTS_BUCKET}/`
+  const markerIndex = path.indexOf(marker)
+  if (markerIndex >= 0) {
+    return decodeURIComponent(path.slice(markerIndex + marker.length))
+  }
+
+  return path.replace(/^\/+/, "")
+}
+
+function buildPublicUrl(url: string, objectPath: string) {
+  return `${url.replace(/\/$/, "")}/storage/v1/object/public/${PRODUCTS_BUCKET}/${objectPath}`
+}
+
 function normalizeRow(url: string, p: any) {
-  const publicBase = `${url.replace(/\/$/, "")}/storage/v1/object/public/products/images/`
+  const publicBase = `${url.replace(/\/$/, "")}/storage/v1/object/public/${PRODUCTS_BUCKET}/`
   let imageUrl: string | null = null
   if (typeof p?.caminho === "string" && p.caminho.length > 0) {
     imageUrl = p.caminho.startsWith("http") ? p.caminho : `${publicBase}${encodeURI(p.caminho)}`
   }
+
   const price = parsePrice(p?.price) ?? 0
   const original = parsePrice(p?.original_price) ?? price
-
   const categorias = (p.product_categories || []).map((pc: any) => pc.categories?.name).filter(Boolean)
 
   return {
@@ -63,336 +120,417 @@ function normalizeRow(url: string, p: any) {
     categoria: categorias,
     caminho: p.caminho,
     image_url: imageUrl,
-    stock: Number.isFinite(Number(p?.stock)) ? Number(p.stock) : 0,
     is_new: !!p?.is_new,
     is_best_seller: !!p?.is_best_seller,
   }
+}
+
+function parseId(input: unknown) {
+  const id = typeof input === "number" ? input : Number(input)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
+function parseMoneyField(input: unknown, fieldName: string, required = false): MoneyParseResult {
+  if (input === null || input === undefined || input === "") {
+    return required ? { ok: false, error: `${fieldName} é obrigatório.` } : { ok: true, value: undefined }
+  }
+
+  const value = parsePrice(input)
+  if (value === null || !Number.isFinite(value) || value < 0) {
+    return { ok: false, error: `${fieldName} inválido.` }
+  }
+
+  return { ok: true, value: Math.round(value * 100) / 100 }
+}
+
+function parseBooleanField(input: unknown) {
+  if (typeof input === "boolean") return input
+  if (typeof input === "string") return input === "true"
+  return false
+}
+
+function parseCategories(input: unknown, fallbackToDefault = false): CategoriesParseResult {
+  let raw: unknown = input
+  if (typeof input === "string") {
+    try {
+      raw = JSON.parse(input)
+    } catch {
+      return { ok: false, error: "Categorias inválidas." }
+    }
+  }
+
+  const values = Array.isArray(raw) ? raw : []
+  const categories = Array.from(
+    new Set(
+      values
+        .map((category) => String(category || "").trim())
+        .filter(Boolean),
+    ),
+  )
+
+  if (categories.length === 0 && fallbackToDefault) return { ok: true, categories: [DEFAULT_CATEGORY] }
+  if (categories.length === 0) return { ok: false, error: "Informe ao menos uma categoria." }
+
+  return { ok: true, categories }
+}
+
+function getFormFile(form: FormData, field: string) {
+  const value = form.get(field)
+  return value instanceof File && value.size > 0 ? value : null
+}
+
+async function ensureProductsBucket(supabase: any) {
+  await supabase.storage.createBucket(PRODUCTS_BUCKET, { public: true }).catch(() => undefined)
+}
+
+async function uploadProductImage(supabase: any, url: string, image: File, productName: string) {
+  await ensureProductsBucket(supabase)
+
+  const inputBuffer = Buffer.from(await image.arrayBuffer())
+  const webp = await sharp(inputBuffer).webp({ quality: 85, alphaQuality: 90, effort: 4 }).toBuffer()
+  const baseName = slugify(productName) || "produto"
+  const objectPath = `images/${baseName}-${Date.now()}.webp`
+
+  const { error } = await supabase.storage.from(PRODUCTS_BUCKET).upload(objectPath, webp, {
+    contentType: "image/webp",
+    upsert: false,
+  })
+
+  if (error) throw new Error(`Falha ao enviar imagem: ${error.message}`)
+
+  const { data } = supabase.storage.from(PRODUCTS_BUCKET).getPublicUrl(objectPath)
+  return {
+    publicUrl: data?.publicUrl || buildPublicUrl(url, objectPath),
+    objectPath,
+  }
+}
+
+async function removeStorageObject(supabase: any, caminho: unknown) {
+  const objectPath = normalizeStoragePath(caminho)
+  if (!objectPath) return
+
+  await supabase.storage.from(PRODUCTS_BUCKET).remove([objectPath]).catch(() => undefined)
+}
+
+async function setProductCategories(supabase: any, productId: number, categorias: string[]) {
+  for (const name of categorias) {
+    const { error } = await supabase.from("categories").upsert(
+      { name, slug: slugify(name) },
+      { onConflict: "name", ignoreDuplicates: false },
+    )
+    if (error) throw new Error(`Falha ao salvar categoria "${name}": ${error.message}`)
+  }
+
+  const { data: categories, error: selectError } = await supabase
+    .from("categories")
+    .select("id, name")
+    .in("name", categorias)
+
+  if (selectError) throw new Error(selectError.message)
+  if (!categories || categories.length !== categorias.length) {
+    throw new Error("Falha ao localizar todas as categorias.")
+  }
+
+  const relations = categories.map((category: any) => ({
+    product_id: productId,
+    category_id: category.id,
+  }))
+
+  const { error: deleteError } = await supabase.from("product_categories").delete().eq("product_id", productId)
+  if (deleteError) throw new Error(deleteError.message)
+
+  const { error: insertError } = await supabase.from("product_categories").insert(relations)
+  if (insertError) throw new Error(insertError.message)
+}
+
+async function fetchProductWithCategories(supabase: any, id: number) {
+  return supabase
+    .from("products")
+    .select(
+      `
+        *,
+        product_categories(
+          categories(
+            id,
+            name,
+            slug
+          )
+        )
+      `,
+    )
+    .eq("id", id)
+    .single()
+}
+
+function applyJsonUpdate(body: any): UpdateBuildResult {
+  const update: ProductUpdate = {}
+  let categorias: string[] | null = null
+
+  if (typeof body.nome_produto === "string") {
+    const nome = body.nome_produto.trim()
+    if (!nome) return { ok: false, error: "Nome é obrigatório." }
+    update.nome_produto = nome
+  }
+
+  if ("descricao" in body) {
+    update.descricao = typeof body.descricao === "string" ? body.descricao.trim() || null : null
+  }
+
+  if ("price" in body) {
+    const parsed = parseMoneyField(body.price, "Preço", true)
+    if (!parsed.ok) return parsed
+    update.price = parsed.value ?? 0
+  }
+
+  if ("original_price" in body) {
+    const parsed = parseMoneyField(body.original_price, "Preço original")
+    if (!parsed.ok) return parsed
+    update.original_price = parsed.value ?? update.price
+  }
+
+  if ("is_new" in body) update.is_new = parseBooleanField(body.is_new)
+  if ("is_best_seller" in body) update.is_best_seller = parseBooleanField(body.is_best_seller)
+
+  if ("categoria" in body) {
+    const parsed = parseCategories(body.categoria)
+    if (!parsed.ok) return parsed
+    categorias = parsed.categories
+  }
+
+  return { ok: true, update, categorias }
+}
+
+function applyFormUpdate(form: FormData): UpdateBuildResult {
+  const update: ProductUpdate = {}
+  let categorias: string[] | null = null
+
+  const nome = form.get("nome_produto")
+  if (typeof nome === "string") {
+    const trimmed = nome.trim()
+    if (!trimmed) return { ok: false, error: "Nome é obrigatório." }
+    update.nome_produto = trimmed
+  }
+
+  const descricao = form.get("descricao")
+  if (typeof descricao === "string") update.descricao = descricao.trim() || null
+
+  if (form.has("price")) {
+    const parsed = parseMoneyField(form.get("price"), "Preço", true)
+    if (!parsed.ok) return parsed
+    update.price = parsed.value ?? 0
+  }
+
+  if (form.has("original_price")) {
+    const parsed = parseMoneyField(form.get("original_price"), "Preço original")
+    if (!parsed.ok) return parsed
+    update.original_price = parsed.value ?? update.price
+  }
+
+  if (form.has("is_new")) update.is_new = parseBooleanField(form.get("is_new"))
+  if (form.has("is_best_seller")) update.is_best_seller = parseBooleanField(form.get("is_best_seller"))
+
+  if (form.has("categoria")) {
+    const parsed = parseCategories(form.get("categoria"))
+    if (!parsed.ok) return parsed
+    categorias = parsed.categories
+  }
+
+  return { ok: true, update, categorias }
 }
 
 export async function GET(req: Request) {
   try {
     noStore()
     const auth = await requireUser(req)
-    if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status, headers: noStoreHeaders })
-    const url = auth.url!
-    const service = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!service) return NextResponse.json({ error: "Service key missing." }, { status: 500, headers: noStoreHeaders })
-    const supabase = createClient(url, service)
+    if (!auth.ok) return jsonError(auth.message, auth.status)
+
+    const supabase = getAdminClient(auth.url)
+    if (!supabase) return jsonError("Service key missing.", 500)
 
     const { data, error } = await supabase
       .from("products")
-      .select(`
-        *,
-        product_categories(
-          categories(
-            id,
-            name,
-            slug
+      .select(
+        `
+          *,
+          product_categories(
+            categories(
+              id,
+              name,
+              slug
+            )
           )
-        )
-      `)
+        `,
+      )
       .order("id", { ascending: true })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: noStoreHeaders })
+    if (error) return jsonError(error.message, 500)
 
     return NextResponse.json(
-      { products: (data || []).map((p: any) => normalizeRow(url, p)) },
+      { products: (data || []).map((product: any) => normalizeRow(auth.url, product)) },
       { headers: noStoreHeaders },
     )
   } catch (e: any) {
     console.error("GET /api/admin/products", e?.message || e)
-    return NextResponse.json({ error: "Internal error" }, { status: 500, headers: noStoreHeaders })
+    return jsonError("Internal error", 500)
   }
 }
 
 export async function POST(req: Request) {
+  let uploadedPath: string | null = null
+  let insertedId: number | null = null
+
   try {
     noStore()
     const auth = await requireUser(req)
-    if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status, headers: noStoreHeaders })
-    const url = auth.url!
-    const service = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!service) return NextResponse.json({ error: "Service key missing." }, { status: 500, headers: noStoreHeaders })
-    const supabase = createClient(url, service)
+    if (!auth.ok) return jsonError(auth.message, auth.status)
+
+    const supabase = getAdminClient(auth.url)
+    if (!supabase) return jsonError("Service key missing.", 500)
 
     const form = await req.formData()
     const nome_produto = String(form.get("nome_produto") || "").trim()
-    const descricao = (form.get("descricao") ? String(form.get("descricao")) : "").trim() || null
-    const priceRaw = form.get("price")
-    const originalRaw = form.get("original_price")
-    const stockRaw = form.get("stock")
-    const isNewRaw = form.get("is_new")
-    const isBestRaw = form.get("is_best_seller")
-    const categoriaRaw = form.get("categoria")
-    const image = form.get("image") as File | null
+    const descricao = String(form.get("descricao") || "").trim() || null
+    const image = getFormFile(form, "image")
 
-    if (!nome_produto)
-      return NextResponse.json({ error: "Nome é obrigatório." }, { status: 400, headers: noStoreHeaders })
-    if (!priceRaw) return NextResponse.json({ error: "Preço é obrigatório." }, { status: 400, headers: noStoreHeaders })
-    if (!image) return NextResponse.json({ error: "Imagem é obrigatória." }, { status: 400, headers: noStoreHeaders })
+    if (!nome_produto) return jsonError("Nome é obrigatório.", 400)
+    if (!image) return jsonError("Imagem é obrigatória.", 400)
 
-    const price = parsePrice(priceRaw) ?? 0
-    const original_price = originalRaw != null ? (parsePrice(originalRaw) ?? price) : price
-    const stock = stockRaw != null ? Math.max(0, Math.floor(Number(stockRaw))) : 0
-    const is_new = String(isNewRaw || "false") === "true"
-    const is_best_seller = String(isBestRaw || "false") === "true"
+    const parsedPrice = parseMoneyField(form.get("price"), "Preço", true)
+    if (!parsedPrice.ok) return jsonError(parsedPrice.error, 400)
 
-    let categorias: string[] = []
-    try {
-      if (typeof categoriaRaw === "string") {
-        const v = JSON.parse(categoriaRaw)
-        if (Array.isArray(v)) categorias = v
-      }
-    } catch {}
+    const parsedOriginal = parseMoneyField(form.get("original_price"), "Preço original")
+    if (!parsedOriginal.ok) return jsonError(parsedOriginal.error, 400)
 
-    // Ensure public bucket
-    try {
-      await supabase.storage.createBucket("products", { public: true })
-    } catch {}
+    const parsedCategories = parseCategories(form.get("categoria"), true)
+    if (!parsedCategories.ok) return jsonError(parsedCategories.error, 400)
 
-    // Always convert to WebP before storing
-    const inputBuffer = Buffer.from(await image.arrayBuffer())
-    const webp = await sharp(inputBuffer).webp({ quality: 85, alphaQuality: 90, effort: 4 }).toBuffer()
-    const baseName = slugify(nome_produto) || "produto"
-    const objectPath = `images/${baseName}-${Date.now()}.webp`
+    const uploaded = await uploadProductImage(supabase, auth.url, image, nome_produto)
+    uploadedPath = uploaded.objectPath
 
-    const { error: upErr } = await supabase.storage.from("products").upload(objectPath, webp, {
-      contentType: "image/webp",
-      upsert: false,
-    })
-    if (upErr) {
-      return NextResponse.json(
-        { error: `Falha ao enviar imagem: ${upErr.message}` },
-        { status: 500, headers: noStoreHeaders },
-      )
-    }
-
-    const { data: publicData } = supabase.storage.from("products").getPublicUrl(objectPath)
-    const publicUrl =
-      publicData?.publicUrl || `${url.replace(/\/$/, "")}/storage/v1/object/public/products/${objectPath}`
-
-    const payload: any = {
+    const payload = {
       nome_produto,
       descricao,
-      price,
-      original_price,
-      caminho: publicUrl,
-      stock,
-      is_new,
-      is_best_seller,
+      price: parsedPrice.value ?? 0,
+      original_price: parsedOriginal.value ?? parsedPrice.value ?? 0,
+      caminho: uploaded.publicUrl,
+      is_new: parseBooleanField(form.get("is_new")),
+      is_best_seller: parseBooleanField(form.get("is_best_seller")),
     }
 
-    const { data: inserted, error: insErr } = await supabase.from("products").insert(payload).select("*").single()
-    if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500, headers: noStoreHeaders })
+    const { data: inserted, error: insertError } = await supabase.from("products").insert(payload).select("*").single()
+    if (insertError) throw new Error(insertError.message)
+    insertedId = inserted.id
 
-    if (categorias.length > 0) {
-      // Primeiro, buscar ou criar as categorias
-      for (const catName of categorias) {
-        const { error: catErr } = await supabase
-          .from("categories")
-          .upsert({ name: catName, slug: slugify(catName) }, { onConflict: "name" })
-        if (catErr) console.warn("Erro ao criar categoria:", catErr.message)
-      }
+    await setProductCategories(supabase, inserted.id, parsedCategories.categories)
 
-      // Buscar os IDs das categorias
-      const { data: categoryIds } = await supabase.from("categories").select("id, name").in("name", categorias)
-
-      if (categoryIds && categoryIds.length > 0) {
-        const relations = categoryIds.map((cat) => ({
-          product_id: inserted.id,
-          category_id: cat.id,
-        }))
-
-        const { error: relErr } = await supabase.from("product_categories").insert(relations)
-
-        if (relErr) console.warn("Erro ao inserir relações de categoria:", relErr.message)
-      }
-    }
-
-    // Buscar o produto com suas categorias para retornar
-    const { data: productWithCategories } = await supabase
-      .from("products")
-      .select(`
-        *,
-        product_categories(
-          categories(
-            id,
-            name,
-            slug
-          )
-        )
-      `)
-      .eq("id", inserted.id)
-      .single()
+    const { data: productWithCategories, error: selectError } = await fetchProductWithCategories(supabase, inserted.id)
+    if (selectError) throw new Error(selectError.message)
 
     return NextResponse.json(
-      { product: normalizeRow(url, productWithCategories || inserted) },
+      { product: normalizeRow(auth.url, productWithCategories || inserted) },
       { status: 201, headers: noStoreHeaders },
     )
   } catch (e: any) {
     console.error("POST /api/admin/products", e?.message || e)
-    return NextResponse.json({ error: "Internal error" }, { status: 500, headers: noStoreHeaders })
+
+    if (uploadedPath) {
+      const auth = await requireUser(req).catch(() => null)
+      if (auth?.ok) {
+        const supabase = getAdminClient(auth.url)
+        if (supabase) {
+          if (insertedId) {
+            try {
+              await supabase.from("product_categories").delete().eq("product_id", insertedId)
+              await supabase.from("products").delete().eq("id", insertedId)
+            } catch {}
+          }
+          await removeStorageObject(supabase, uploadedPath)
+        }
+      }
+    }
+
+    return jsonError(e?.message || "Internal error", 500)
   }
 }
 
 export async function PATCH(req: Request) {
+  let uploadedPath: string | null = null
+  let previousImage: string | null = null
+
   try {
     noStore()
     const auth = await requireUser(req)
-    if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status, headers: noStoreHeaders })
-    const url = auth.url!
-    const service = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!service) return NextResponse.json({ error: "Service key missing." }, { status: 500, headers: noStoreHeaders })
-    const supabase = createClient(url, service)
+    if (!auth.ok) return jsonError(auth.message, auth.status)
+
+    const supabase = getAdminClient(auth.url)
+    if (!supabase) return jsonError("Service key missing.", 500)
 
     const contentType = req.headers.get("content-type") || ""
     let id: number | null = null
-    const update: any = {}
-    let categorias: string[] | null = null
+    let updateResult: UpdateBuildResult
+    let image: File | null = null
 
     if (contentType.includes("application/json")) {
       const body = (await req.json().catch(() => null)) as any
-      if (!body || typeof body.id !== "number") {
-        return NextResponse.json({ error: "Payload inválido." }, { status: 400, headers: noStoreHeaders })
-      }
-      id = body.id
-      if (typeof body.nome_produto === "string") update.nome_produto = body.nome_produto.trim()
-      if (typeof body.descricao === "string") update.descricao = body.descricao.trim()
-      if (body.price != null) update.price = parsePrice(body.price) ?? 0
-      if (body.original_price != null) update.original_price = parsePrice(body.original_price) ?? update.price
-      if (Array.isArray(body.categoria)) categorias = body.categoria
-      if (typeof body.stock === "number") update.stock = Math.max(0, Math.floor(body.stock))
-      if (typeof body.is_new === "boolean") update.is_new = body.is_new
-      if (typeof body.is_best_seller === "boolean") update.is_best_seller = body.is_best_seller
+      id = parseId(body?.id)
+      if (!id) return jsonError("ID inválido.", 400)
+      updateResult = applyJsonUpdate(body)
     } else {
       const form = await req.formData()
-      const idRaw = form.get("id")
-      id = Number(idRaw)
-      if (!Number.isFinite(id)) {
-        return NextResponse.json({ error: "ID inválido." }, { status: 400, headers: noStoreHeaders })
-      }
-      const nome_produto = form.get("nome_produto")
-      const descricao = form.get("descricao")
-      const priceRaw = form.get("price")
-      const originalRaw = form.get("original_price")
-      const stockRaw = form.get("stock")
-      const isNewRaw = form.get("is_new")
-      const isBestRaw = form.get("is_best_seller")
-      const categoriaRaw = form.get("categoria")
-      const image = form.get("image") as File | null
-
-      if (typeof nome_produto === "string") update.nome_produto = nome_produto.trim()
-      if (typeof descricao === "string") update.descricao = descricao.trim()
-      if (priceRaw != null) update.price = parsePrice(priceRaw) ?? 0
-      if (originalRaw != null) update.original_price = parsePrice(originalRaw) ?? update.price
-      if (stockRaw != null) update.stock = Math.max(0, Math.floor(Number(stockRaw)))
-      if (typeof isNewRaw === "string") update.is_new = isNewRaw === "true"
-      if (typeof isBestRaw === "string") update.is_best_seller = isBestRaw === "true"
-      try {
-        if (typeof categoriaRaw === "string") {
-          const v = JSON.parse(categoriaRaw)
-          if (Array.isArray(v)) categorias = v
-        }
-      } catch {}
-
-      if (image) {
-        // convert to webp and upload
-        const inputBuffer = Buffer.from(await image.arrayBuffer())
-        const webp = await sharp(inputBuffer).webp({ quality: 85, alphaQuality: 90, effort: 4 }).toBuffer()
-        const baseName =
-          slugify(typeof update.nome_produto === "string" ? update.nome_produto : String(id)) || "produto"
-        const objectPath = `images/${baseName}-${Date.now()}.webp`
-
-        // ensure bucket
-        try {
-          await supabase.storage.createBucket("products", { public: true })
-        } catch {}
-
-        const { error: upErr } = await supabase.storage.from("products").upload(objectPath, webp, {
-          contentType: "image/webp",
-          upsert: false,
-        })
-        if (upErr) {
-          return NextResponse.json(
-            { error: `Falha ao enviar imagem: ${upErr.message}` },
-            { status: 500, headers: noStoreHeaders },
-          )
-        }
-        const { data: publicData } = supabase.storage.from("products").getPublicUrl(objectPath)
-        const publicUrl =
-          publicData?.publicUrl || `${url.replace(/\/$/, "")}/storage/v1/object/public/products/${objectPath}`
-        update.caminho = publicUrl
-      }
+      id = parseId(form.get("id"))
+      if (!id) return jsonError("ID inválido.", 400)
+      updateResult = applyFormUpdate(form)
+      image = getFormFile(form, "image")
     }
 
-    if (!Number.isFinite(Number(id))) {
-      return NextResponse.json({ error: "ID ausente." }, { status: 400, headers: noStoreHeaders })
+    if (!updateResult.ok) return jsonError(updateResult.error, 400)
+
+    const { data: current, error: currentError } = await supabase.from("products").select("*").eq("id", id).single()
+    if (currentError) return jsonError(currentError.message, 500)
+    previousImage = current?.caminho ?? null
+
+    const update = updateResult.update
+    if (image) {
+      const imageName = update.nome_produto || current?.nome_produto || String(id)
+      const uploaded = await uploadProductImage(supabase, auth.url, image, imageName)
+      update.caminho = uploaded.publicUrl
+      uploadedPath = uploaded.objectPath
     }
 
-    let productRow: any = null
+    if (updateResult.categorias !== null) {
+      await setProductCategories(supabase, id, updateResult.categorias)
+    }
 
+    let productRow = current
     if (Object.keys(update).length > 0) {
-      const { data, error } = await supabase.from("products").update(update).eq("id", id!).select("*").single()
-      if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: noStoreHeaders })
-      productRow = data
-    } else {
-      const { data, error } = await supabase.from("products").select("*").eq("id", id!).single()
-      if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: noStoreHeaders })
+      const { data, error } = await supabase.from("products").update(update).eq("id", id).select("*").single()
+      if (error) throw new Error(error.message)
       productRow = data
     }
 
-    if (categorias !== null) {
-      // Remover relações existentes
-      await supabase.from("product_categories").delete().eq("product_id", id!)
-
-      if (categorias.length > 0) {
-        // Criar/buscar categorias
-        for (const catName of categorias) {
-          const { error: catErr } = await supabase
-            .from("categories")
-            .upsert({ name: catName, slug: slugify(catName) }, { onConflict: "name" })
-          if (catErr) console.warn("Erro ao criar categoria:", catErr.message)
-        }
-
-        // Buscar IDs das categorias
-        const { data: categoryIds } = await supabase.from("categories").select("id, name").in("name", categorias)
-
-        if (categoryIds && categoryIds.length > 0) {
-          const relations = categoryIds.map((cat) => ({
-            product_id: id!,
-            category_id: cat.id,
-          }))
-
-          const { error: relErr } = await supabase.from("product_categories").insert(relations)
-
-          if (relErr) console.warn("Erro ao inserir relações de categoria:", relErr.message)
-        }
-      }
+    if (uploadedPath && previousImage) {
+      await removeStorageObject(supabase, previousImage)
     }
 
-    // Buscar o produto com suas categorias para retornar
-    const { data: productWithCategories } = await supabase
-      .from("products")
-      .select(`
-        *,
-        product_categories(
-          categories(
-            id,
-            name,
-            slug
-          )
-        )
-      `)
-      .eq("id", id!)
-      .single()
+    const { data: productWithCategories, error: selectError } = await fetchProductWithCategories(supabase, id)
+    if (selectError) throw new Error(selectError.message)
 
     return NextResponse.json(
-      { product: normalizeRow(url, productWithCategories || productRow) },
+      { product: normalizeRow(auth.url, productWithCategories || productRow) },
       { headers: noStoreHeaders },
     )
   } catch (e: any) {
     console.error("PATCH /api/admin/products", e?.message || e)
-    return NextResponse.json({ error: "Internal error" }, { status: 500, headers: noStoreHeaders })
+
+    if (uploadedPath) {
+      const auth = await requireUser(req).catch(() => null)
+      if (auth?.ok) {
+        const supabase = getAdminClient(auth.url)
+        if (supabase) await removeStorageObject(supabase, uploadedPath)
+      }
+    }
+
+    return jsonError(e?.message || "Internal error", 500)
   }
 }
 
@@ -400,47 +538,35 @@ export async function DELETE(req: Request) {
   try {
     noStore()
     const auth = await requireUser(req)
-    if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status, headers: noStoreHeaders })
-    const url = auth.url!
-    const service = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!service) return NextResponse.json({ error: "Service key missing." }, { status: 500, headers: noStoreHeaders })
-    const supabase = createClient(url, service)
+    if (!auth.ok) return jsonError(auth.message, auth.status)
+
+    const supabase = getAdminClient(auth.url)
+    if (!supabase) return jsonError("Service key missing.", 500)
 
     let id: number | null = null
     const contentType = req.headers.get("content-type") || ""
     if (contentType.includes("application/json")) {
       const body = (await req.json().catch(() => null)) as any
-      if (body && typeof body.id === "number") id = body.id
-    }
-    if (id === null) {
-      const search = new URL(req.url).searchParams.get("id")
-      if (search && Number.isFinite(Number(search))) id = Number(search)
-    }
-    if (!Number.isFinite(Number(id))) {
-      return NextResponse.json({ error: "ID inválido." }, { status: 400, headers: noStoreHeaders })
+      id = parseId(body?.id)
     }
 
-    // try to remove storage object if from our bucket
-    const { data: row } = await supabase.from("products").select("caminho").eq("id", id!).single()
-    if (row?.caminho && typeof row.caminho === "string") {
-      const m = row.caminho.match(/\/storage\/v1\/object\/public\/products\/(.+)$/)
-      const key = m?.[1]
-      if (key) {
-        await supabase.storage
-          .from("products")
-          .remove([key])
-          .catch(() => undefined)
-      }
-    }
+    if (!id) id = parseId(new URL(req.url).searchParams.get("id"))
+    if (!id) return jsonError("ID inválido.", 400)
 
-    await supabase.from("product_categories").delete().eq("product_id", id!)
+    const { data: row, error: selectError } = await supabase.from("products").select("caminho").eq("id", id).single()
+    if (selectError) return jsonError(selectError.message, 500)
 
-    const { error } = await supabase.from("products").delete().eq("id", id!)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: noStoreHeaders })
+    const { error: relationError } = await supabase.from("product_categories").delete().eq("product_id", id)
+    if (relationError) return jsonError(relationError.message, 500)
+
+    const { error } = await supabase.from("products").delete().eq("id", id)
+    if (error) return jsonError(error.message, 500)
+
+    await removeStorageObject(supabase, row?.caminho)
 
     return NextResponse.json({ ok: true, id }, { headers: noStoreHeaders })
   } catch (e: any) {
     console.error("DELETE /api/admin/products", e?.message || e)
-    return NextResponse.json({ error: "Internal error" }, { status: 500, headers: noStoreHeaders })
+    return jsonError("Internal error", 500)
   }
 }

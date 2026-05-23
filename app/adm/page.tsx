@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { FormEvent, useEffect, useRef, useState } from "react"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,73 +14,83 @@ export default function AdminPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const hasLoadedSession = useRef(false)
 
- useEffect(() => {
-  let mounted = true;
+  useEffect(() => {
+    let mounted = true
 
-  // Pega a sessão inicial
-  supabase.auth.getSession().then(({ data }) => {
-    if (!mounted) return;
-    setSession(data.session ?? null);
-    setReady(true);
-  });
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!mounted) return
+        if (error) setError(error.message)
+        setSession(data.session ?? null)
+      })
+      .catch((e) => {
+        if (!mounted) return
+        setError(e?.message || "Falha ao carregar sessão.")
+      })
+      .finally(() => {
+        if (!mounted) return
+        hasLoadedSession.current = true
+        setReady(true)
+      })
 
-  // Escuta mudanças na sessão (login, logout, refresh)
-  const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-    if (!mounted) return;
+    const { data: sub } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (!mounted) return
 
-    setSession(session);
+      setSession(nextSession)
 
-    // Só mostra erro se realmente for um logout e não um refresh
-    if (!session && ready) {
-      setError("Sessão expirada. Faça login novamente.");
+      if (nextSession) {
+        setError(null)
+      } else if (hasLoadedSession.current && event !== "SIGNED_OUT") {
+        setError("Sessão expirada. Faça login novamente.")
+      }
+    })
+
+    return () => {
+      mounted = false
+      sub.subscription.unsubscribe()
     }
-  });
+  }, [supabase])
 
-  return () => {
-    mounted = false;
-    sub.subscription.unsubscribe();
-  };
-  // Sem 'ready' nas dependências, para não recriar listener
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+  const signIn = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault()
+    if (!email.trim() || !password) {
+      setError("Informe e-mail e senha.")
+      return
+    }
 
-  const signIn = async () => {
     try {
       setError(null)
       setLoading(true)
-
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000)
 
       const { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       })
 
-      clearTimeout(timeoutId)
-
       if (error) throw error
     } catch (e: any) {
-      if (e.name === "AbortError") {
-        setError("Timeout: Login demorou muito. Verifique sua conexão e tente novamente.")
-      } else {
-        setError(e?.message || "Falha ao entrar.")
-      }
+      setError(e?.message || "Falha ao entrar.")
     } finally {
       setLoading(false)
     }
   }
 
   const signOut = async () => {
-    setLoading(true)
-    setError("Saindo...")
-    await supabase.auth.signOut()
-    setError(null)
-    setEmail("")
-    setPassword("")
-    setLoading(false)
-    setSession(null)
+    try {
+      setLoading(true)
+      setError(null)
+      await supabase.auth.signOut()
+      setEmail("")
+      setPassword("")
+      setSession(null)
+    } catch (e: any) {
+      setError(e?.message || "Falha ao sair.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   const forceSignOut = async () => {
@@ -95,7 +105,7 @@ export default function AdminPage() {
       </div>
     )
   }
-  
+
   if (!session) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50 flex items-center justify-center px-4">
@@ -106,7 +116,7 @@ export default function AdminPage() {
               {error}
             </div>
           ) : null}
-          <div className="space-y-4">
+          <form className="space-y-4" onSubmit={signIn}>
             <div>
               <label htmlFor="email" className="text-sm font-medium text-gray-700">
                 E-mail
@@ -117,6 +127,7 @@ export default function AdminPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="voce@exemplo.com"
+                autoComplete="email"
               />
             </div>
             <div>
@@ -129,14 +140,14 @@ export default function AdminPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Sua senha"
-                onKeyDown={(e) => e.key === "Enter" && signIn()}
+                autoComplete="current-password"
               />
             </div>
-            <Button onClick={signIn} disabled={loading} className="w-full">
+            <Button type="submit" disabled={loading} className="w-full">
               {loading ? "Entrando..." : "Entrar"}
             </Button>
             <p className="text-xs text-gray-500 text-center">Autenticação via Supabase</p>
-          </div>
+          </form>
         </div>
       </main>
     )
@@ -146,11 +157,11 @@ export default function AdminPage() {
     <main className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50">
       <header className="sticky top-0 z-20 bg-white/90 border-b border-orange-100 backdrop-blur">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-semibold">Admin • Controle de Estoque</h1>
+          <h1 className="text-lg font-semibold">Admin • Catálogo de Produtos</h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500 hidden sm:inline">{session.user.email}</span>
-            <Button variant="outline" onClick={signOut}>
-              Sair
+            <Button variant="outline" onClick={signOut} disabled={loading}>
+              {loading ? "Saindo..." : "Sair"}
             </Button>
           </div>
         </div>

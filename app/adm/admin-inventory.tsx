@@ -1,15 +1,16 @@
 "use client"
 
-import React, { useEffect, useMemo, useState, useCallback, useRef } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, RefreshCw, Trash2, SaveAll, Loader2 } from "lucide-react"
+import { Search, RefreshCw, Trash2, SaveAll, Loader2, Upload } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableRow, TableHead } from "@/components/ui/table"
+import { parsePrice } from "@/lib/utils/pricing"
 
 interface Product {
   id: number
@@ -20,32 +21,98 @@ interface Product {
   categoria: string[]
   caminho: string | null
   image_url: string | null
-  stock: number
   is_new: boolean
   is_best_seller: boolean
 }
 
-interface Category {
-  id: number
-  name: string
-  slug: string
+type AlertState = {
+  type: "error" | "success" | "info"
+  message: string
+} | null
+
+type AlertType = NonNullable<AlertState>["type"]
+
+type ImageDraft = {
+  file: File
+  previewUrl: string
 }
 
-// Hook personalizado para debounce
+type StatusFilter = "all" | "modified" | "new" | "best" | "no-image"
+type SortOption = "name-asc" | "price-asc" | "price-desc" | "recent"
+
+const DEFAULT_CATEGORY = "Geral"
+const ALL_CATEGORIES_VALUE = "__all__"
+
+const currencyFormatter = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+})
+
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value)
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value)
-    }, delay)
-
-    return () => {
-      clearTimeout(handler)
-    }
+    const handler = setTimeout(() => setDebouncedValue(value), delay)
+    return () => clearTimeout(handler)
   }, [value, delay])
 
   return debouncedValue
+}
+
+function normalizeCategoryName(category: string) {
+  return category.trim()
+}
+
+function mergeCategories(...groups: Array<Array<string | null | undefined>>) {
+  return Array.from(
+    new Set(
+      groups
+        .flat()
+        .map((category) => normalizeCategoryName(String(category || "")))
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b, "pt-BR"))
+}
+
+function parseEditableNumber(value: string, fallback = 0) {
+  const parsed = parsePrice(value)
+  return parsed === null || parsed < 0 ? fallback : Math.round(parsed * 100) / 100
+}
+
+function productImageSrc(product: Product, imageDraft?: ImageDraft) {
+  return imageDraft?.previewUrl || product.image_url || product.caminho || ""
+}
+
+function hasProductImage(product: Product, imageDraft?: ImageDraft) {
+  return Boolean(productImageSrc(product, imageDraft))
+}
+
+function isMobile() {
+  if (typeof window === "undefined") return false
+  return (
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(window.navigator.userAgent) ||
+    window.innerWidth <= 768
+  )
+}
+
+async function safeJson(res: Response) {
+  const text = await res.text()
+  try {
+    return text ? JSON.parse(text) : {}
+  } catch {
+    return {}
+  }
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMs: number) {
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
 }
 
 function useDebouncedInput<T>(
@@ -54,21 +121,19 @@ function useDebouncedInput<T>(
   delay = 300,
   transform?: (value: string) => T,
 ) {
-  const [localValue, setLocalValue] = useState<string>(String(initialValue))
+  const [localValue, setLocalValue] = useState<string>(String(initialValue ?? ""))
   const debouncedValue = useDebounce(localValue, delay)
   const isInitialMount = useRef(true)
-  const lastCommittedValue = useRef<string>(String(initialValue))
+  const lastCommittedValue = useRef<string>(String(initialValue ?? ""))
 
-  // Atualiza valor local apenas quando valor inicial muda externamente
   useEffect(() => {
-    const newStringValue = String(initialValue)
-    if (newStringValue !== lastCommittedValue.current) {
-      setLocalValue(newStringValue)
-      lastCommittedValue.current = newStringValue
+    const nextValue = String(initialValue ?? "")
+    if (nextValue !== lastCommittedValue.current) {
+      setLocalValue(nextValue)
+      lastCommittedValue.current = nextValue
     }
   }, [initialValue])
 
-  // Chama onUpdate apenas quando usuário fez mudanças reais
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false
@@ -76,19 +141,14 @@ function useDebouncedInput<T>(
     }
 
     if (debouncedValue !== lastCommittedValue.current) {
-      const transformedValue = transform ? transform(debouncedValue) : (debouncedValue as T)
-      onUpdate(transformedValue)
+      onUpdate(transform ? transform(debouncedValue) : (debouncedValue as T))
       lastCommittedValue.current = debouncedValue
     }
   }, [debouncedValue, onUpdate, transform])
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalValue(e.target.value)
-  }, [])
-
   return {
     value: localValue,
-    onChange: handleChange,
+    onChange: (event: React.ChangeEvent<HTMLInputElement>) => setLocalValue(event.target.value),
   }
 }
 
@@ -115,321 +175,373 @@ const DebouncedNumberInput = React.memo(
     onUpdate,
     className,
     min,
-    type = "text",
+    integer = false,
   }: {
     value: number
     onUpdate: (value: number) => void
     className?: string
     min?: number
-    type?: string
+    integer?: boolean
   }) => {
     const transformNumber = useCallback(
-      (val: string) => {
-        const num = Number(val) || 0
-        return min !== undefined ? Math.max(min, type === "number" ? Math.floor(num) : num) : num
+      (nextValue: string) => {
+        const parsed = integer ? Math.floor(Number(nextValue)) : parseEditableNumber(nextValue)
+        const normalized = Number.isFinite(parsed) ? parsed : 0
+        return min !== undefined ? Math.max(min, normalized) : normalized
       },
-      [min, type],
+      [integer, min],
     )
 
     const input = useDebouncedInput(value, onUpdate, 300, transformNumber)
-    return <Input {...input} type={type} className={className} min={min} />
+    return <Input {...input} type={integer ? "number" : "text"} className={className} min={min} />
   },
 )
 
-// Função para detectar dispositivo móvel
-const isMobile = () => {
-  return (
-    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-    window.innerWidth <= 768
-  )
-}
+const CategoryEditor = React.memo(
+  ({
+    selected,
+    options,
+    disabled,
+    onAdd,
+    onRemove,
+    compact = false,
+  }: {
+    selected: string[]
+    options: string[]
+    disabled?: boolean
+    onAdd: (category: string) => void
+    onRemove: (category: string) => void
+    compact?: boolean
+  }) => {
+    const [customCategory, setCustomCategory] = useState("")
+    const availableOptions = options.filter((category) => !selected.includes(category))
 
-// Componente memorizado para linha da tabela desktop
+    const addCustomCategory = () => {
+      const category = normalizeCategoryName(customCategory)
+      if (!category) return
+
+      onAdd(category)
+      setCustomCategory("")
+    }
+
+    return (
+      <div className="space-y-2">
+        {selected.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {selected.map((category) => (
+              <Badge
+                key={category}
+                variant="outline"
+                className={`text-xs ${disabled ? "opacity-60" : "cursor-pointer hover:bg-red-50"}`}
+                onClick={() => {
+                  if (!disabled) onRemove(category)
+                }}
+              >
+                {category} ×
+              </Badge>
+            ))}
+          </div>
+        ) : null}
+
+        <div className={compact ? "space-y-2" : "grid grid-cols-1 gap-2"}>
+          <Select key={selected.join("|")} onValueChange={onAdd} disabled={disabled || availableOptions.length === 0}>
+            <SelectTrigger className={compact ? "h-9" : "h-10"}>
+              <SelectValue placeholder={availableOptions.length > 0 ? "Adicionar categoria" : "Sem categorias"} />
+            </SelectTrigger>
+            <SelectContent>
+              {availableOptions.length > 0 ? (
+                availableOptions.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))
+              ) : (
+                <div className="px-2 py-2 text-sm text-gray-500">Nenhuma opção disponível</div>
+              )}
+            </SelectContent>
+          </Select>
+
+          <div className="flex gap-2">
+            <Input
+              value={customCategory}
+              onChange={(event) => setCustomCategory(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  addCustomCategory()
+                }
+              }}
+              disabled={disabled}
+              placeholder="Nova categoria"
+              className={compact ? "h-9" : "h-10"}
+            />
+            <Button type="button" variant="outline" onClick={addCustomCategory} disabled={disabled || !customCategory.trim()}>
+              Adicionar
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  },
+)
+
 const ProductRowDesktop = React.memo(
   ({
     product,
+    categoryOptions,
+    imageDraft,
+    isModified,
+    isRemoving,
+    isSaving,
     onUpdateLocal,
     onRemove,
-    availableCategories,
-    isRemoving,
-    onRemoveCategory,
-    isUpdatingCategory,
     onAddCategory,
-    categoriesLoading,
+    onRemoveCategory,
+    onSelectImage,
   }: {
     product: Product
+    categoryOptions: string[]
+    imageDraft?: ImageDraft
+    isModified: boolean
+    isRemoving: boolean
+    isSaving: boolean
     onUpdateLocal: (id: number, patch: Partial<Product>) => void
     onRemove: (id: number) => void
-    availableCategories: Category[]
-    isRemoving: boolean
-    onRemoveCategory: (productId: number, category: string) => void
-    isUpdatingCategory: boolean
     onAddCategory: (productId: number, category: string) => void
-    categoriesLoading: boolean
+    onRemoveCategory: (productId: number, category: string) => void
+    onSelectImage: (productId: number, file: File | null) => void
   }) => {
-    const updateName = useCallback(
-      (value: string) => onUpdateLocal(product.id, { nome_produto: value }),
-      [product.id, onUpdateLocal],
-    )
-    const updateDescription = useCallback(
-      (value: string) => onUpdateLocal(product.id, { descricao: value }),
-      [product.id, onUpdateLocal],
-    )
-    const updatePrice = useCallback(
-      (value: number) => onUpdateLocal(product.id, { price: value }),
-      [product.id, onUpdateLocal],
-    )
-    const updateOriginalPrice = useCallback(
-      (value: number) => onUpdateLocal(product.id, { original_price: value }),
-      [product.id, onUpdateLocal],
-    )
-    const updateStock = useCallback(
-      (value: number) => onUpdateLocal(product.id, { stock: value }),
-      [product.id, onUpdateLocal],
-    )
+    const imageSrc = productImageSrc(product, imageDraft)
+    const missingImage = !hasProductImage(product, imageDraft)
 
     return (
-      <tr key={product.id} className={product.stock === 0 ? "opacity-60" : ""}>
-        <td className="p-3 align-top">
+      <tr className={isModified ? "bg-amber-50/50" : ""}>
+        <td className="min-w-[340px] p-2.5 align-top">
           <div className="flex items-start gap-3">
-            {product.caminho ? (
-              <img
-                src={product.caminho || "/placeholder.svg"}
-                alt={product.nome_produto}
-                className="w-16 h-16 object-cover rounded"
-              />
+            {imageSrc ? (
+              <img src={imageSrc} alt={product.nome_produto} className="h-14 w-14 rounded object-cover" />
             ) : (
-              <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
-                <span className="text-xl">🍦</span>
+              <div className="flex h-14 w-14 items-center justify-center rounded bg-gray-100 text-xs text-gray-500">
+                Sem imagem
               </div>
             )}
-            <div className="min-w-0">
-              <DebouncedTextInput value={product.nome_produto} onUpdate={updateName} className="h-9" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex flex-wrap gap-1">
+                <Badge variant="outline" className="text-[11px]">
+                  #{product.id}
+                </Badge>
+                {isModified ? <Badge className="bg-amber-100 text-amber-800 text-[11px]">Pendente</Badge> : null}
+                {missingImage ? <Badge className="bg-gray-100 text-gray-700 text-[11px]">Sem imagem</Badge> : null}
+              </div>
+              <DebouncedTextInput
+                value={product.nome_produto}
+                onUpdate={(value) => onUpdateLocal(product.id, { nome_produto: value })}
+                className="h-9"
+              />
               <DebouncedTextInput
                 value={product.descricao ?? ""}
-                onUpdate={updateDescription}
-                className="h-9 mt-2"
+                onUpdate={(value) => onUpdateLocal(product.id, { descricao: value })}
+                className="h-9"
                 placeholder="Descrição"
               />
+              <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border border-orange-100 bg-white px-3 text-xs text-gray-700 hover:bg-orange-50">
+                <Upload className="h-3.5 w-3.5" />
+                {imageDraft ? "Imagem alterada" : "Trocar imagem"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(event) => onSelectImage(product.id, event.target.files?.[0] ?? null)}
+                />
+              </label>
             </div>
           </div>
         </td>
-        <td className="p-3 align-top">
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap gap-1">
-              {product.categoria?.map((category, i) => (
-                <Badge
-                  key={i}
-                  variant="outline"
-                  className={`text-xs cursor-pointer hover:bg-red-50 ${isUpdatingCategory ? "opacity-60 pointer-events-none" : ""}`}
-                  onClick={() => {
-                    if (!isUpdatingCategory) onRemoveCategory(product.id, category)
-                  }}
-                >
-                  {category} ×
-                </Badge>
-              ))}
-            </div>
-            <Select
-              onValueChange={(value) => onAddCategory(product.id, value)}
-              disabled={isUpdatingCategory || categoriesLoading}
-            >
-              <SelectTrigger className="h-9 w-44">
-                <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Adicionar categoria"} />
-              </SelectTrigger>
-              <SelectContent>
-                {availableCategories
-                  .filter((category) => !product.categoria?.includes(category.name))
-                  .map((category) => (
-                    <SelectItem key={category.id} value={category.name}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </td>
-        <td className="p-3 align-top">
-          <div className="flex flex-col">
-            <DebouncedNumberInput value={product.price} onUpdate={updatePrice} className="h-9" />
-            <DebouncedNumberInput value={product.original_price} onUpdate={updateOriginalPrice} className="h-9 mt-2" />
-          </div>
-        </td>
-        <td className="p-3 align-top w-32">
-          <DebouncedNumberInput
-            value={product.stock}
-            onUpdate={updateStock}
-            className="h-9 w-28"
-            min={0}
-            type="number"
+        <td className="min-w-[220px] p-2.5 align-top">
+          <CategoryEditor
+            selected={product.categoria}
+            options={categoryOptions}
+            onAdd={(category) => onAddCategory(product.id, category)}
+            onRemove={(category) => onRemoveCategory(product.id, category)}
+            compact
           />
         </td>
-        <td className="p-3 align-top">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => onRemove(product.id)}
-              disabled={isRemoving}
+        <td className="p-2.5 align-top">
+          <div className="mb-1 text-[11px] text-gray-500">{currencyFormatter.format(product.price)}</div>
+          <div className="w-32 space-y-2">
+            <DebouncedNumberInput
+              value={product.price}
+              onUpdate={(value) => onUpdateLocal(product.id, { price: value })}
               className="h-9"
-            >
-              {isRemoving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-            </Button>
+            />
+            <DebouncedNumberInput
+              value={product.original_price}
+              onUpdate={(value) => onUpdateLocal(product.id, { original_price: value })}
+              className="h-9"
+            />
           </div>
+        </td>
+        <td className="min-w-[130px] p-2.5 align-top">
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={product.is_new}
+                onChange={(event) => onUpdateLocal(product.id, { is_new: event.target.checked })}
+              />
+              Novo
+            </label>
+            <label className="flex items-center gap-2 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={product.is_best_seller}
+                onChange={(event) => onUpdateLocal(product.id, { is_best_seller: event.target.checked })}
+              />
+              Mais vendido
+            </label>
+          </div>
+        </td>
+        <td className="p-2.5 align-top">
+          <Button variant="destructive" size="sm" onClick={() => onRemove(product.id)} disabled={isRemoving || isSaving}>
+            {isRemoving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          </Button>
         </td>
       </tr>
     )
   },
 )
 
-// Componente memorizado para card mobile
 const ProductCardMobile = React.memo(
   ({
     product,
+    categoryOptions,
+    imageDraft,
+    isModified,
+    isRemoving,
+    isSaving,
     onUpdateLocal,
     onRemove,
-    availableCategories,
-    isRemoving,
-    onRemoveCategory,
-    isUpdatingCategory,
     onAddCategory,
-    categoriesLoading,
+    onRemoveCategory,
+    onSelectImage,
   }: {
     product: Product
+    categoryOptions: string[]
+    imageDraft?: ImageDraft
+    isModified: boolean
+    isRemoving: boolean
+    isSaving: boolean
     onUpdateLocal: (id: number, patch: Partial<Product>) => void
     onRemove: (id: number) => void
-    availableCategories: Category[]
-    isRemoving: boolean
-    onRemoveCategory: (productId: number, category: string) => void
-    isUpdatingCategory: boolean
     onAddCategory: (productId: number, category: string) => void
-    categoriesLoading: boolean
+    onRemoveCategory: (productId: number, category: string) => void
+    onSelectImage: (productId: number, file: File | null) => void
   }) => {
-    const updateName = useCallback(
-      (value: string) => onUpdateLocal(product.id, { nome_produto: value }),
-      [product.id, onUpdateLocal],
-    )
-    const updateDescription = useCallback(
-      (value: string) => onUpdateLocal(product.id, { descricao: value }),
-      [product.id, onUpdateLocal],
-    )
-    const updatePrice = useCallback(
-      (value: number) => onUpdateLocal(product.id, { price: value }),
-      [product.id, onUpdateLocal],
-    )
-    const updateOriginalPrice = useCallback(
-      (value: number) => onUpdateLocal(product.id, { original_price: value }),
-      [product.id, onUpdateLocal],
-    )
-    const updateStock = useCallback(
-      (value: number) => onUpdateLocal(product.id, { stock: value }),
-      [product.id, onUpdateLocal],
-    )
+    const imageSrc = productImageSrc(product, imageDraft)
+    const missingImage = !hasProductImage(product, imageDraft)
 
     return (
-      <Card key={product.id} className={`mb-4 ${product.stock === 0 ? "opacity-60" : ""}`}>
-        <CardContent className="p-4">
-          {/* Image and basic info */}
-          <div className="flex gap-3 mb-4">
-            {product.caminho ? (
-              <img
-                src={product.caminho || "/placeholder.svg"}
-                alt={product.nome_produto}
-                className="w-20 h-20 object-cover rounded"
-              />
+      <Card className={isModified ? "border-amber-200 bg-amber-50/40" : ""}>
+        <CardContent className="space-y-3 p-4">
+          <div className="flex flex-wrap gap-1">
+            <Badge variant="outline" className="text-[11px]">
+              #{product.id}
+            </Badge>
+            {isModified ? <Badge className="bg-amber-100 text-amber-800 text-[11px]">Pendente</Badge> : null}
+            {missingImage ? <Badge className="bg-gray-100 text-gray-700 text-[11px]">Sem imagem</Badge> : null}
+          </div>
+          <div className="flex gap-3">
+            {imageSrc ? (
+              <img src={imageSrc} alt={product.nome_produto} className="h-20 w-20 rounded object-cover" />
             ) : (
-              <div className="w-20 h-20 bg-gray-100 rounded flex items-center justify-center">
-                <span className="text-2xl">🍦</span>
+              <div className="flex h-20 w-20 items-center justify-center rounded bg-gray-100 text-xs text-gray-500">
+                Sem imagem
               </div>
             )}
-            <div className="flex-1 space-y-2">
-              <div>
-                <label className="text-xs font-medium text-gray-600">Nome</label>
-                <DebouncedTextInput value={product.nome_produto} onUpdate={updateName} className="h-10 mt-1" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600">Descrição</label>
-                <DebouncedTextInput
-                  value={product.descricao ?? ""}
-                  onUpdate={updateDescription}
-                  className="h-10 mt-1"
-                  placeholder="Descrição"
+            <div className="min-w-0 flex-1 space-y-2">
+              <label className="text-xs font-medium text-gray-600">Nome</label>
+              <DebouncedTextInput
+                value={product.nome_produto}
+                onUpdate={(value) => onUpdateLocal(product.id, { nome_produto: value })}
+                className="h-10"
+              />
+              <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border border-orange-100 bg-white px-3 text-xs text-gray-700 hover:bg-orange-50">
+                <Upload className="h-3.5 w-3.5" />
+                {imageDraft ? "Imagem alterada" : "Trocar imagem"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(event) => onSelectImage(product.id, event.target.files?.[0] ?? null)}
                 />
-              </div>
+              </label>
             </div>
           </div>
 
-          {/* Price and stock */}
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div>
+            <label className="text-xs font-medium text-gray-600">Descrição</label>
+            <DebouncedTextInput
+              value={product.descricao ?? ""}
+              onUpdate={(value) => onUpdateLocal(product.id, { descricao: value })}
+              className="mt-1 h-10"
+              placeholder="Descrição"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600">Preço</label>
-              <DebouncedNumberInput value={product.price} onUpdate={updatePrice} className="h-10 mt-1" />
+              <DebouncedNumberInput
+                value={product.price}
+                onUpdate={(value) => onUpdateLocal(product.id, { price: value })}
+                className="mt-1 h-10"
+              />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600">Preço Original</label>
+              <label className="text-xs font-medium text-gray-600">Preço original</label>
               <DebouncedNumberInput
                 value={product.original_price}
-                onUpdate={updateOriginalPrice}
-                className="h-10 mt-1"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600">Estoque</label>
-              <DebouncedNumberInput
-                value={product.stock}
-                onUpdate={updateStock}
-                className="h-10 mt-1"
-                min={0}
-                type="number"
+                onUpdate={(value) => onUpdateLocal(product.id, { original_price: value })}
+                className="mt-1 h-10"
               />
             </div>
           </div>
 
-          {/* Categories */}
-          <div className="mb-4">
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={product.is_new}
+                onChange={(event) => onUpdateLocal(product.id, { is_new: event.target.checked })}
+              />
+              Novo
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={product.is_best_seller}
+                onChange={(event) => onUpdateLocal(product.id, { is_best_seller: event.target.checked })}
+              />
+              Mais vendido
+            </label>
+          </div>
+
+          <div>
             <label className="text-xs font-medium text-gray-600">Categorias</label>
-            <div className="space-y-2 mt-1">
-              {product.categoria?.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {product.categoria.map((category, i) => (
-                    <Badge
-                      key={i}
-                      variant="outline"
-                      className={`text-xs cursor-pointer hover:bg-red-50 ${isUpdatingCategory ? "opacity-60 pointer-events-none" : ""}`}
-                      onClick={() => {
-                        if (!isUpdatingCategory) onRemoveCategory(product.id, category)
-                      }}
-                    >
-                      {category} ×
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              <Select
-                onValueChange={(value) => onAddCategory(product.id, value)}
-                disabled={isUpdatingCategory || categoriesLoading}
-              >
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Adicionar categoria"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableCategories
-                    .filter((category) => !product.categoria?.includes(category.name))
-                    .map((category) => (
-                      <SelectItem key={category.id} value={category.name}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+            <div className="mt-1">
+              <CategoryEditor
+                selected={product.categoria}
+                options={categoryOptions}
+                onAdd={(category) => onAddCategory(product.id, category)}
+                onRemove={(category) => onRemoveCategory(product.id, category)}
+              />
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex justify-end">
-            <Button variant="destructive" size="sm" onClick={() => onRemove(product.id)} disabled={isRemoving}>
+            <Button variant="destructive" size="sm" onClick={() => onRemove(product.id)} disabled={isRemoving || isSaving}>
               {isRemoving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              Remover
+              <span className="ml-2">Remover</span>
             </Button>
           </div>
         </CardContent>
@@ -442,37 +554,81 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
   const supabase = getSupabaseBrowserClient()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [alert, setAlert] = useState<AlertState>(null)
   const [modifiedProducts, setModifiedProducts] = useState<Set<number>>(new Set())
   const [savingAll, setSavingAll] = useState(false)
-  const [categories, setCategories] = useState<Category[]>([])
+  const [savingMap, setSavingMap] = useState<Record<number, boolean>>({})
+  const [categories, setCategories] = useState<string[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES_VALUE)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
+  const [sortOption, setSortOption] = useState<SortOption>("name-asc")
   const [creating, setCreating] = useState(false)
   const [pName, setPName] = useState("")
   const [pPrice, setPPrice] = useState("")
   const [pOriginal, setPOriginal] = useState("")
-  const [pStock, setPStock] = useState(0)
   const [pDesc, setPDesc] = useState("")
   const [pSelectedCategories, setPSelectedCategories] = useState<string[]>([])
   const [pNew, setPNew] = useState(false)
   const [pBest, setPBest] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState("")
+  const [imageDrafts, setImageDrafts] = useState<Record<number, ImageDraft>>({})
   const [deletingMap, setDeletingMap] = useState<Record<number, boolean>>({})
-  const [categoryUpdatingMap, setCategoryUpdatingMap] = useState<Record<number, boolean>>({})
 
-  // Debounce da busca para melhor performance
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
+  const previewUrlRef = useRef(previewUrl)
+  const imageDraftsRef = useRef(imageDrafts)
+  const modifiedProductsRef = useRef(modifiedProducts)
+
+  useEffect(() => {
+    previewUrlRef.current = previewUrl
+  }, [previewUrl])
+
+  useEffect(() => {
+    imageDraftsRef.current = imageDrafts
+  }, [imageDrafts])
+
+  useEffect(() => {
+    modifiedProductsRef.current = modifiedProducts
+  }, [modifiedProducts])
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+      Object.values(imageDraftsRef.current).forEach((draft) => URL.revokeObjectURL(draft.previewUrl))
+    }
+  }, [])
+
+  const showAlert = useCallback((type: AlertType, message: string) => {
+    setAlert({ type, message })
+  }, [])
+
+  const clearProductImageDraft = useCallback((productId: number) => {
+    setImageDrafts((prev) => {
+      const draft = prev[productId]
+      if (draft) URL.revokeObjectURL(draft.previewUrl)
+      const next = { ...prev }
+      delete next[productId]
+      return next
+    })
+  }, [])
+
+  const clearAllImageDrafts = useCallback(() => {
+    setImageDrafts((prev) => {
+      Object.values(prev).forEach((draft) => URL.revokeObjectURL(draft.previewUrl))
+      return {}
+    })
+  }, [])
 
   const handleAuthError = useCallback(
     (error: any, response?: Response) => {
       if (
         response?.status === 401 ||
-        error?.message?.includes("não autorizado") ||
-        error?.message?.includes("unauthorized")
+        error?.message?.toLowerCase?.().includes("unauthorized") ||
+        error?.message?.toLowerCase?.().includes("invalid token")
       ) {
-        console.warn("Erro de autenticação detectado, fazendo logout...")
         onAuthError?.()
         return true
       }
@@ -481,170 +637,242 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
     [onAuthError],
   )
 
-  const authHeader = async () => {
+  const authHeader = useCallback(async () => {
     try {
       const { data, error } = await supabase.auth.getSession()
       if (error) {
-        console.warn("Erro ao obter sessão:", error)
         handleAuthError(error)
         return undefined
       }
+
       const token = data.session?.access_token
       if (!token) {
-        console.warn("Token não encontrado")
         handleAuthError(new Error("Token não encontrado"))
         return undefined
       }
+
       return { Authorization: `Bearer ${token}` }
     } catch (error) {
-      console.warn("Erro ao obter header de auth:", error)
       handleAuthError(error)
       return undefined
     }
-  }
-
-  const safeJson = async (res: Response) => {
-    const text = await res.text()
-    try {
-      return text ? JSON.parse(text) : {}
-    } catch {
-      return {}
-    }
-  }
-
-  const fetchProducts = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const headers = await authHeader()
-      if (!headers) {
-        setError("Não foi possível obter autorização. Faça login novamente.")
-        return
-      }
-
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000)
-
-      const res = await fetch("/api/admin/products", {
-        cache: "no-store",
-        headers,
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
-      const json = await safeJson(res)
-
-      if (!res.ok) {
-        if (handleAuthError(new Error(json?.error), res)) return
-        throw new Error(json?.error || "Falha ao carregar produtos.")
-      }
-
-      setProducts(Array.isArray(json?.products) ? json.products : [])
-      setModifiedProducts(new Set())
-    } catch (e: any) {
-      if (e.name === "AbortError") {
-        setError("Timeout: Carregamento demorou muito. Verifique sua conexão e tente novamente.")
-      } else if (!handleAuthError(e)) {
-        setError(e?.message || "Erro ao carregar.")
-      }
-    } finally {
-      setLoading(false)
-    }
-  }, [handleAuthError])
+  }, [handleAuthError, supabase])
 
   const fetchCategories = useCallback(async () => {
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 15000)
-
-      const res = await fetch("/api/categories", {
-        cache: "no-store",
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
+      setCategoriesLoading(true)
+      const res = await fetchWithTimeout("/api/categories", { cache: "no-store" }, 15000)
       const json = await safeJson(res)
 
-      if (res.ok && Array.isArray(json)) {
-        setCategories(json)
-        setCategoriesLoading(false)
+      if (!res.ok) throw new Error(json?.error || "Falha ao carregar categorias.")
+
+      if (Array.isArray(json)) {
+        setCategories(mergeCategories(json.map((category: any) => category.name), [DEFAULT_CATEGORY]))
       }
     } catch (e: any) {
-      if (e.name === "AbortError") {
-        console.warn("Timeout ao carregar categorias")
-      } else {
-        console.warn("Erro ao carregar categorias:", e)
-      }
+      console.warn("Erro ao carregar categorias:", e)
+      setCategories((prev) => mergeCategories(prev, [DEFAULT_CATEGORY]))
+    } finally {
+      setCategoriesLoading(false)
     }
   }, [])
 
+  const fetchProducts = useCallback(
+    async (discardUnsaved = true) => {
+      if (!discardUnsaved && (modifiedProductsRef.current.size > 0 || Object.keys(imageDraftsRef.current).length > 0)) {
+        const confirmed = window.confirm("Recarregar descarta alterações não salvas. Continuar?")
+        if (!confirmed) return
+      }
+
+      try {
+        setLoading(true)
+        setAlert(null)
+        const headers = await authHeader()
+        if (!headers) {
+          showAlert("error", "Não foi possível obter autorização. Faça login novamente.")
+          return
+        }
+
+        const res = await fetchWithTimeout("/api/admin/products", { cache: "no-store", headers }, 30000)
+        const json = await safeJson(res)
+
+        if (!res.ok) {
+          if (handleAuthError(new Error(json?.error), res)) return
+          throw new Error(json?.error || "Falha ao carregar produtos.")
+        }
+
+        const nextProducts = Array.isArray(json?.products) ? json.products : []
+        setProducts(nextProducts)
+        setModifiedProducts(new Set())
+        clearAllImageDrafts()
+        setCategories((prev) => mergeCategories(prev, [DEFAULT_CATEGORY], nextProducts.flatMap((product: Product) => product.categoria)))
+      } catch (e: any) {
+        if (e.name === "AbortError") {
+          showAlert("error", "Timeout: carregamento demorou muito. Verifique sua conexão e tente novamente.")
+        } else if (!handleAuthError(e)) {
+          showAlert("error", e?.message || "Erro ao carregar.")
+        }
+      } finally {
+        setLoading(false)
+      }
+    },
+    [authHeader, clearAllImageDrafts, handleAuthError, showAlert],
+  )
+
   useEffect(() => {
-    fetchProducts()
+    fetchProducts(true)
     fetchCategories()
   }, [fetchProducts, fetchCategories])
 
-  const filteredProducts = useMemo(() => {
-    const t = debouncedSearchTerm.trim().toLowerCase()
-    if (!t) return products
-    return products.filter((p) => p.nome_produto.toLowerCase().includes(t))
-  }, [products, debouncedSearchTerm])
+  const categoryOptions = useMemo(
+    () => mergeCategories(categories, products.flatMap((product) => product.categoria), pSelectedCategories),
+    [categories, products, pSelectedCategories],
+  )
 
-  const updateLocal = useCallback((id: number, patch: Partial<Product>) => {
-    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)))
-    setModifiedProducts((prev) => new Set([...prev, id]))
+  const productStats = useMemo(() => {
+    return products.reduce(
+      (stats, product) => {
+        const imageDraft = imageDrafts[product.id]
+        const modified = modifiedProducts.has(product.id) || Boolean(imageDraft)
+
+        stats.total += 1
+        if (modified) stats.modified += 1
+        if (product.is_new) stats.newProducts += 1
+        if (product.is_best_seller) stats.bestSellers += 1
+        if (!hasProductImage(product, imageDraft)) stats.noImage += 1
+
+        return stats
+      },
+      {
+        total: 0,
+        modified: 0,
+        newProducts: 0,
+        bestSellers: 0,
+        noImage: 0,
+      },
+    )
+  }, [imageDrafts, modifiedProducts, products])
+
+  const visibleProducts = useMemo(() => {
+    const term = debouncedSearchTerm.trim().toLowerCase()
+
+    const filtered = products.filter((product) => {
+      const imageDraft = imageDrafts[product.id]
+      const modified = modifiedProducts.has(product.id) || Boolean(imageDraft)
+      const hasImage = hasProductImage(product, imageDraft)
+      const matchesSearch =
+        !term ||
+        product.nome_produto.toLowerCase().includes(term) ||
+        product.descricao?.toLowerCase().includes(term) ||
+        product.categoria.some((category) => category.toLowerCase().includes(term))
+      const matchesCategory = categoryFilter === ALL_CATEGORIES_VALUE || product.categoria.includes(categoryFilter)
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "modified" && modified) ||
+        (statusFilter === "new" && product.is_new) ||
+        (statusFilter === "best" && product.is_best_seller) ||
+        (statusFilter === "no-image" && !hasImage)
+
+      return matchesSearch && matchesCategory && matchesStatus
+    })
+
+    return [...filtered].sort((a, b) => {
+      switch (sortOption) {
+        case "price-asc":
+          return a.price - b.price || a.nome_produto.localeCompare(b.nome_produto, "pt-BR")
+        case "price-desc":
+          return b.price - a.price || a.nome_produto.localeCompare(b.nome_produto, "pt-BR")
+        case "recent":
+          return b.id - a.id
+        case "name-asc":
+        default:
+          return a.nome_produto.localeCompare(b.nome_produto, "pt-BR")
+      }
+    })
+  }, [categoryFilter, debouncedSearchTerm, imageDrafts, modifiedProducts, products, sortOption, statusFilter])
+
+  const activeFilterCount = [
+    searchTerm.trim(),
+    categoryFilter !== ALL_CATEGORIES_VALUE,
+    statusFilter !== "all",
+  ].filter(Boolean).length
+
+  const clearListingFilters = useCallback(() => {
+    setSearchTerm("")
+    setCategoryFilter(ALL_CATEGORIES_VALUE)
+    setStatusFilter("all")
+    setSortOption("name-asc")
   }, [])
 
-  const compressImage = useCallback(
-    (file: File, maxWidth = 800, quality = 0.8): Promise<File> => {
-      return new Promise((resolve) => {
-        const canvas = document.createElement("canvas")
-        const ctx = canvas.getContext("2d")
-        const img = new window.Image()
+  const updateLocal = useCallback((id: number, patch: Partial<Product>) => {
+    setProducts((prev) => prev.map((product) => (product.id === id ? { ...product, ...patch } : product)))
+    setModifiedProducts((prev) => new Set(prev).add(id))
+  }, [])
 
-        img.onload = () => {
-          const mobile = isMobile()
-          const targetWidth = mobile ? 600 : maxWidth
-          const targetQuality = mobile ? 0.6 : quality
+  const compressImage = useCallback((file: File, maxWidth = 800, quality = 0.8): Promise<File> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement("canvas")
+      const ctx = canvas.getContext("2d")
+      const img = new window.Image()
+      const sourceUrl = URL.createObjectURL(file)
 
-          // Calcular dimensões mantendo proporção
-          const ratio = Math.min(targetWidth / img.width, targetWidth / img.height)
-          canvas.width = img.width * ratio
-          canvas.height = img.height * ratio
+      img.onload = () => {
+        const mobile = isMobile()
+        const targetWidth = mobile ? 600 : maxWidth
+        const targetQuality = mobile ? 0.6 : quality
+        const ratio = Math.min(targetWidth / img.width, targetWidth / img.height, 1)
 
-          // Desenhar imagem redimensionada
-          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height)
+        canvas.width = Math.max(1, Math.round(img.width * ratio))
+        canvas.height = Math.max(1, Math.round(img.height * ratio))
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height)
 
-          // Converter para blob e depois para file
-          canvas.toBlob(
-            (blob) => {
-              if (blob) {
-                const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".webp"), {
-                  type: "image/webp",
-                  lastModified: Date.now(),
-                })
-                console.log(
-                  `Imagem comprimida: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`,
-                )
-                resolve(compressedFile)
-              } else {
-                console.warn("Falha na compressão, usando arquivo original")
-                resolve(file)
-              }
-            },
-            "image/webp",
-            targetQuality,
-          )
-        }
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(sourceUrl)
+            if (!blob) {
+              resolve(file)
+              return
+            }
 
-        img.onerror = () => {
-          console.warn("Erro ao carregar imagem para compressão, usando arquivo original")
-          resolve(file)
-        }
+            resolve(
+              new File([blob], file.name.replace(/\.[^/.]+$/, ".webp"), {
+                type: "image/webp",
+                lastModified: Date.now(),
+              }),
+            )
+          },
+          "image/webp",
+          targetQuality,
+        )
+      }
 
-        img.src = URL.createObjectURL(file)
-      })
+      img.onerror = () => {
+        URL.revokeObjectURL(sourceUrl)
+        resolve(file)
+      }
+
+      img.src = sourceUrl
+    })
+  }, [])
+
+  const prepareImageFile = useCallback(
+    async (file: File | null) => {
+      if (!file) return null
+
+      const mobile = isMobile()
+      const maxSize = mobile ? 5 * 1024 * 1024 : 10 * 1024 * 1024
+      if (file.size > maxSize) {
+        throw new Error(`Arquivo muito grande. Máximo ${mobile ? "5MB" : "10MB"}.`)
+      }
+
+      const compressedFile = await compressImage(file)
+      if (compressedFile.size > maxSize) {
+        throw new Error("Imagem ainda muito grande após compressão. Tente uma imagem menor.")
+      }
+
+      return compressedFile
     },
-    [isMobile],
+    [compressImage],
   )
 
   const onSelectFile = useCallback(
@@ -652,359 +880,338 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
       setSelectedFile(null)
       if (previewUrl) URL.revokeObjectURL(previewUrl)
       setPreviewUrl("")
-      setError(null)
+      setAlert(null)
 
       if (!file) return
 
-      const mobile = isMobile()
-      const maxSize = mobile ? 5 * 1024 * 1024 : 10 * 1024 * 1024 // 5MB para mobile, 10MB para desktop
-
-      if (file.size > maxSize) {
-        setError(`Arquivo muito grande. Máximo ${mobile ? "5MB" : "10MB"} para ${mobile ? "mobile" : "desktop"}.`)
-        return
-      }
-
       try {
-        setError("Comprimindo imagem...")
-        const compressedFile = await compressImage(file)
-
-        if (compressedFile.size > maxSize) {
-          setError(`Imagem ainda muito grande após compressão. Tente uma imagem menor.`)
-          return
-        }
+        showAlert("info", "Comprimindo imagem...")
+        const compressedFile = await prepareImageFile(file)
+        if (!compressedFile) return
 
         setSelectedFile(compressedFile)
         setPreviewUrl(URL.createObjectURL(compressedFile))
-        setError(null)
-      } catch (error) {
-        console.error("Erro ao comprimir imagem:", error)
-        setError("Erro ao processar imagem. Tente outra imagem.")
+        setAlert(null)
+      } catch (e: any) {
+        showAlert("error", e?.message || "Erro ao processar imagem.")
       }
     },
-    [previewUrl, compressImage, isMobile],
+    [prepareImageFile, previewUrl, showAlert],
   )
 
-  const addCategoryToNewProduct = useCallback((category: string) => {
-    setPSelectedCategories((prev) => (prev.includes(category) ? prev : [...prev, category]))
+  const onSelectProductImage = useCallback(
+    async (productId: number, file: File | null) => {
+      if (!file) return
+
+      try {
+        showAlert("info", "Comprimindo imagem...")
+        const compressedFile = await prepareImageFile(file)
+        if (!compressedFile) return
+
+        setImageDrafts((prev) => {
+          const previousDraft = prev[productId]
+          if (previousDraft) URL.revokeObjectURL(previousDraft.previewUrl)
+          return {
+            ...prev,
+            [productId]: {
+              file: compressedFile,
+              previewUrl: URL.createObjectURL(compressedFile),
+            },
+          }
+        })
+        setModifiedProducts((prev) => new Set(prev).add(productId))
+        setAlert(null)
+      } catch (e: any) {
+        showAlert("error", e?.message || "Erro ao processar imagem.")
+      }
+    },
+    [prepareImageFile, showAlert],
+  )
+
+  const addCategoryToKnownOptions = useCallback((category: string) => {
+    setCategories((prev) => mergeCategories(prev, [category]))
   }, [])
 
+  const addCategoryToNewProduct = useCallback(
+    (category: string) => {
+      const normalized = normalizeCategoryName(category)
+      if (!normalized) return
+      setPSelectedCategories((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]))
+      addCategoryToKnownOptions(normalized)
+    },
+    [addCategoryToKnownOptions],
+  )
+
   const removeCategoryFromNewProduct = useCallback((category: string) => {
-    setPSelectedCategories((prev) => prev.filter((c) => c !== category))
+    setPSelectedCategories((prev) => prev.filter((item) => item !== category))
   }, [])
 
   const addCategoryToProduct = useCallback(
-    async (productId: number, category: string) => {
-      const product = products.find((p) => p.id === productId)
-      if (!product) return
-      if (product.categoria.includes(category)) return
+    (productId: number, category: string) => {
+      const normalized = normalizeCategoryName(category)
+      if (!normalized) return
 
-      const previousCategories = product.categoria
-      const nextCategories = [...previousCategories, category]
-
-      setCategoryUpdatingMap((prev) => ({ ...prev, [productId]: true }))
-      setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: nextCategories } : p)))
-
-      try {
-        const headers = await authHeader()
-        if (!headers) {
-          setError("Não foi possível obter autorização. Faça login novamente.")
-          setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
-          return
-        }
-
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 15000)
-
-        const res = await fetch("/api/admin/products", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...headers },
-          body: JSON.stringify({ id: productId, categoria: nextCategories }),
-          signal: controller.signal,
-        })
-
-        clearTimeout(timeoutId)
-        const json = await safeJson(res)
-
-        if (!res.ok) {
-          if (handleAuthError(new Error(json?.error), res)) {
-            setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
-            return
-          }
-          throw new Error(json?.error || "Falha ao adicionar categoria.")
-        }
-
-        if (json?.product) {
-          setProducts((prev) => prev.map((p) => (p.id === productId ? json.product : p)))
-        }
-      } catch (e: any) {
-        setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
-        if (e.name === "AbortError") {
-          setError("Timeout: Adicionar categoria demorou muito. Verifique sua conexão e tente novamente.")
-        } else if (!handleAuthError(e)) {
-          setError(e?.message || "Erro ao adicionar categoria.")
-        }
-      } finally {
-        setCategoryUpdatingMap((prev) => ({ ...prev, [productId]: false }))
-      }
+      setProducts((prev) =>
+        prev.map((product) => {
+          if (product.id !== productId || product.categoria.includes(normalized)) return product
+          return { ...product, categoria: [...product.categoria, normalized] }
+        }),
+      )
+      setModifiedProducts((prev) => new Set(prev).add(productId))
+      addCategoryToKnownOptions(normalized)
     },
-    [products, authHeader, handleAuthError],
+    [addCategoryToKnownOptions],
   )
 
   const removeCategoryFromProduct = useCallback(
-    async (productId: number, categoryToRemove: string) => {
-      const product = products.find((p) => p.id === productId)
+    (productId: number, categoryToRemove: string) => {
+      const product = products.find((item) => item.id === productId)
       if (!product) return
-
-      const previousCategories = product.categoria
-      const nextCategories = previousCategories.filter((c) => c !== categoryToRemove)
-
-      setCategoryUpdatingMap((prev) => ({ ...prev, [productId]: true }))
-      setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: nextCategories } : p)))
-
-      try {
-        const headers = await authHeader()
-        if (!headers) {
-          setError("Não foi possível obter autorização. Faça login novamente.")
-          setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
-          return
-        }
-
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 15000)
-
-        const res = await fetch("/api/admin/products", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...headers },
-          body: JSON.stringify({ id: productId, categoria: nextCategories }),
-          signal: controller.signal,
-        })
-
-        clearTimeout(timeoutId)
-        const json = await safeJson(res)
-
-        if (!res.ok) {
-          if (handleAuthError(new Error(json?.error), res)) {
-            setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
-            return
-          }
-          throw new Error(json?.error || "Falha ao remover categoria.")
-        }
-
-        if (json?.product) {
-          setProducts((prev) => prev.map((p) => (p.id === productId ? json.product : p)))
-        }
-      } catch (e: any) {
-        setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, categoria: previousCategories } : p)))
-        if (e.name === "AbortError") {
-          setError("Timeout: Remover categoria demorou muito. Verifique sua conexão e tente novamente.")
-        } else if (!handleAuthError(e)) {
-          setError(e?.message || "Erro ao remover categoria.")
-        }
-      } finally {
-        setCategoryUpdatingMap((prev) => ({ ...prev, [productId]: false }))
+      if (product.categoria.length <= 1) {
+        showAlert("error", "O produto precisa manter ao menos uma categoria.")
+        return
       }
+
+      updateLocal(productId, { categoria: product.categoria.filter((category) => category !== categoryToRemove) })
     },
-    [products, authHeader, handleAuthError],
+    [products, showAlert, updateLocal],
+  )
+
+  const buildProductPayload = useCallback((product: Product) => {
+    return {
+      id: product.id,
+      nome_produto: product.nome_produto.trim(),
+      descricao: product.descricao?.trim() || null,
+      price: product.price,
+      original_price: product.original_price,
+      is_new: product.is_new,
+      is_best_seller: product.is_best_seller,
+      categoria: product.categoria.length > 0 ? product.categoria : [DEFAULT_CATEGORY],
+    }
+  }, [])
+
+  const saveProduct = useCallback(
+    async (product: Product, headers: Record<string, string>) => {
+      const payload = buildProductPayload(product)
+      if (!payload.nome_produto) throw new Error(`Produto ${product.id}: nome é obrigatório.`)
+
+      const imageDraft = imageDrafts[product.id]
+      const timeout = imageDraft ? (isMobile() ? 120000 : 60000) : 30000
+      let res: Response
+
+      if (imageDraft) {
+        const formData = new FormData()
+        formData.append("id", String(payload.id))
+        formData.append("nome_produto", payload.nome_produto)
+        if (payload.descricao) formData.append("descricao", payload.descricao)
+        formData.append("price", String(payload.price))
+        formData.append("original_price", String(payload.original_price))
+        formData.append("is_new", String(payload.is_new))
+        formData.append("is_best_seller", String(payload.is_best_seller))
+        formData.append("categoria", JSON.stringify(payload.categoria))
+        formData.append("image", imageDraft.file)
+
+        res = await fetchWithTimeout("/api/admin/products", { method: "PATCH", headers, body: formData }, timeout)
+      } else {
+        res = await fetchWithTimeout(
+          "/api/admin/products",
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", ...headers },
+            body: JSON.stringify(payload),
+          },
+          timeout,
+        )
+      }
+
+      const json = await safeJson(res)
+      if (!res.ok) {
+        if (handleAuthError(new Error(json?.error), res)) throw new Error("Sessão expirada")
+        throw new Error(`${product.nome_produto}: ${json?.error || "Falha ao salvar."}`)
+      }
+
+      return json?.product as Product
+    },
+    [buildProductPayload, handleAuthError, imageDrafts],
   )
 
   const createProduct = useCallback(async () => {
     if (!pName.trim() || !pPrice.trim()) {
-      setError("Nome e preço são obrigatórios")
+      showAlert("error", "Nome e preço são obrigatórios.")
       return
     }
     if (!selectedFile) {
-      setError("Imagem é obrigatória")
+      showAlert("error", "Imagem é obrigatória.")
       return
     }
 
     setCreating(true)
-    setError(null)
+    showAlert("info", `Enviando produto... ${isMobile() ? "(pode demorar mais em mobile)" : ""}`)
 
     try {
+      const headers = await authHeader()
+      if (!headers) {
+        showAlert("error", "Não foi possível obter autorização. Faça login novamente.")
+        return
+      }
+
       const formData = new FormData()
       formData.append("nome_produto", pName.trim())
       formData.append("price", pPrice.trim())
       if (pOriginal.trim()) formData.append("original_price", pOriginal.trim())
-      formData.append("stock", pStock.toString())
       if (pDesc.trim()) formData.append("descricao", pDesc.trim())
-      formData.append("categoria", JSON.stringify(pSelectedCategories.length > 0 ? pSelectedCategories : ["Geral"]))
-      formData.append("is_new", pNew.toString())
-      formData.append("is_best_seller", pBest.toString())
+      formData.append("categoria", JSON.stringify(pSelectedCategories.length > 0 ? pSelectedCategories : [DEFAULT_CATEGORY]))
+      formData.append("is_new", String(pNew))
+      formData.append("is_best_seller", String(pBest))
       formData.append("image", selectedFile)
 
-      const headers = await authHeader()
-      if (!headers) {
-        setError("Não foi possível obter autorização. Faça login novamente.")
-        return
-      }
-
-      const controller = new AbortController()
-      const mobile = isMobile()
-      const timeout = mobile ? 120000 : 60000
-      const timeoutId = setTimeout(() => controller.abort(), timeout)
-
-      setError(`Enviando produto... ${mobile ? "(pode demorar mais em mobile)" : ""}`)
-
-      const res = await fetch("/api/admin/products", {
-        method: "POST",
-        headers,
-        body: formData,
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
-
-      if (!res.ok) {
-        const errorText = await res.text()
-        let errorMessage = "Erro ao criar produto"
-
-        try {
-          const errorJson = JSON.parse(errorText)
-          errorMessage = errorJson?.error || errorMessage
-        } catch {
-          if (res.status === 401) errorMessage = "Não autorizado. Faça login novamente."
-          else if (res.status === 413) errorMessage = "Arquivo muito grande para o servidor"
-          else if (res.status === 408) errorMessage = "Timeout: Upload demorou muito"
-          else if (res.status >= 500) errorMessage = "Erro no servidor. Tente novamente."
-          else errorMessage = `Erro ${res.status}: ${errorText || "Erro desconhecido"}`
-        }
-
-        if (handleAuthError(new Error(errorMessage), res)) return
-
-        throw new Error(errorMessage)
-      }
-
+      const res = await fetchWithTimeout(
+        "/api/admin/products",
+        { method: "POST", headers, body: formData },
+        isMobile() ? 120000 : 60000,
+      )
       const json = await safeJson(res)
 
-      // Reset form
+      if (!res.ok) {
+        if (handleAuthError(new Error(json?.error), res)) return
+        throw new Error(json?.error || "Erro ao criar produto.")
+      }
+
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
       setPName("")
       setPPrice("")
       setPOriginal("")
-      setPStock(0)
       setPDesc("")
       setPSelectedCategories([])
       setPNew(false)
       setPBest(false)
       setSelectedFile(null)
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
       setPreviewUrl("")
 
-      setError("Produto criado com sucesso!")
-      setTimeout(() => setError(null), 3000)
-
-      await fetchProducts()
+      if (json?.product) {
+        setProducts((prev) =>
+          [...prev.filter((product) => product.id !== json.product.id), json.product].sort((a, b) => a.id - b.id),
+        )
+        setCategories((prev) => mergeCategories(prev, json.product.categoria, [DEFAULT_CATEGORY]))
+      } else {
+        await fetchProducts(true)
+      }
+      await fetchCategories()
+      showAlert("success", "Produto criado com sucesso.")
     } catch (e: any) {
       if (e.name === "AbortError") {
-        setError("Timeout: Upload demorou muito. Verifique sua conexão e tente novamente.")
+        showAlert("error", "Timeout: upload demorou muito. Verifique sua conexão e tente novamente.")
       } else if (!handleAuthError(e)) {
-        setError(e.message || "Erro desconhecido ao criar produto")
+        showAlert("error", e?.message || "Erro desconhecido ao criar produto.")
       }
     } finally {
       setCreating(false)
     }
   }, [
-    pName,
-    pPrice,
-    pOriginal,
-    pStock,
-    pDesc,
-    pSelectedCategories,
-    pNew,
-    pBest,
-    selectedFile,
-    previewUrl,
+    authHeader,
+    fetchCategories,
     fetchProducts,
     handleAuthError,
+    pBest,
+    pDesc,
+    pName,
+    pNew,
+    pOriginal,
+    pPrice,
+    pSelectedCategories,
+    previewUrl,
+    selectedFile,
+    showAlert,
   ])
 
   const saveAllModified = useCallback(async () => {
     if (modifiedProducts.size === 0) return
 
     setSavingAll(true)
+    setAlert(null)
+
     try {
       const headers = await authHeader()
       if (!headers) {
-        setError("Não foi possível obter autorização. Faça login novamente.")
+        showAlert("error", "Não foi possível obter autorização. Faça login novamente.")
         return
       }
 
-      const modifiedList = products.filter((p) => modifiedProducts.has(p.id))
+      const modifiedList = products.filter((product) => modifiedProducts.has(product.id))
+      setSavingMap(Object.fromEntries(modifiedList.map((product) => [product.id, true])))
 
-      const savePromises = modifiedList.map(async (product) => {
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 30000)
+      const results = await Promise.allSettled(modifiedList.map((product) => saveProduct(product, headers)))
+      const successfulProducts: Product[] = []
+      const failedIds = new Set<number>()
+      const errorMessages: string[] = []
 
-        const res = await fetch(`/api/admin/products`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...headers },
-          signal: controller.signal,
-          body: JSON.stringify({
-            id: product.id,
-            nome_produto: product.nome_produto,
-            price: product.price,
-            original_price: product.original_price,
-            stock: product.stock,
-            descricao: product.descricao,
-            is_new: product.is_new,
-            is_best_seller: product.is_best_seller,
-            categoria: Array.isArray(product.categoria) ? product.categoria : [],
-          }),
-        })
-
-        clearTimeout(timeoutId)
-        const json = await safeJson(res)
-        if (!res.ok) {
-          if (handleAuthError(new Error(json?.error), res)) {
-            throw new Error("Sessão expirada")
-          }
-          throw new Error(`Erro ao salvar ${product.nome_produto}: ${json?.error || "Falha ao salvar."}`)
+      results.forEach((result, index) => {
+        const product = modifiedList[index]
+        if (result.status === "fulfilled" && result.value) {
+          successfulProducts.push(result.value)
+          clearProductImageDraft(product.id)
+        } else {
+          failedIds.add(product.id)
+          const reason = result.status === "rejected" ? result.reason : null
+          errorMessages.push(reason?.message || `${product.nome_produto}: falha ao salvar.`)
         }
-        return json?.product
       })
 
-      const updatedProducts = await Promise.all(savePromises)
-
       setProducts((prev) =>
-        prev.map((product) => {
-          const updated = updatedProducts.find((up) => up?.id === product.id)
-          return updated ? updated : product
-        }),
+        prev.map((product) => successfulProducts.find((updated) => updated.id === product.id) || product),
       )
+      setModifiedProducts(failedIds)
 
-      setModifiedProducts(new Set())
+      if (failedIds.size > 0) {
+        showAlert("error", `${successfulProducts.length} salvo(s), ${failedIds.size} com erro. ${errorMessages[0]}`)
+      } else {
+        showAlert("success", `${successfulProducts.length} produto(s) salvo(s) com sucesso.`)
+        await fetchCategories()
+      }
     } catch (e: any) {
       if (e.name === "AbortError") {
-        setError("Timeout: Salvamento demorou muito. Verifique sua conexão e tente novamente.")
+        showAlert("error", "Timeout: salvamento demorou muito. Verifique sua conexão e tente novamente.")
       } else if (!handleAuthError(e)) {
-        setError(e?.message || "Erro ao salvar produtos.")
+        showAlert("error", e?.message || "Erro ao salvar produtos.")
       }
     } finally {
       setSavingAll(false)
+      setSavingMap({})
     }
-  }, [modifiedProducts, products, handleAuthError])
+  }, [
+    authHeader,
+    clearProductImageDraft,
+    fetchCategories,
+    handleAuthError,
+    modifiedProducts,
+    products,
+    saveProduct,
+    showAlert,
+  ])
 
   const deleteRow = useCallback(
     async (id: number) => {
-      if (!confirm("Tem certeza que deseja remover este produto?")) return
-      setDeletingMap((m) => ({ ...m, [id]: true }))
+      if (!window.confirm("Tem certeza que deseja remover este produto?")) return
+
+      setDeletingMap((prev) => ({ ...prev, [id]: true }))
+      setAlert(null)
+
       try {
         const headers = await authHeader()
         if (!headers) {
-          setError("Não foi possível obter autorização. Faça login novamente.")
+          showAlert("error", "Não foi possível obter autorização. Faça login novamente.")
           return
         }
 
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 30000)
-
-        const res = await fetch(`/api/admin/products?id=${id}`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json", ...headers },
-          body: JSON.stringify({ id }),
-          signal: controller.signal,
-        })
-
-        clearTimeout(timeoutId)
+        const res = await fetchWithTimeout(
+          `/api/admin/products?id=${id}`,
+          {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json", ...headers },
+            body: JSON.stringify({ id }),
+          },
+          30000,
+        )
         const json = await safeJson(res)
 
         if (!res.ok) {
@@ -1012,63 +1219,65 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
           throw new Error(json?.error || "Falha ao remover.")
         }
 
-        setProducts((prev) => prev.filter((p) => p.id !== id))
+        clearProductImageDraft(id)
+        setProducts((prev) => prev.filter((product) => product.id !== id))
         setModifiedProducts((prev) => {
-          const newSet = new Set(prev)
-          newSet.delete(id)
-          return newSet
+          const next = new Set(prev)
+          next.delete(id)
+          return next
         })
+        showAlert("success", "Produto removido.")
       } catch (e: any) {
         if (e.name === "AbortError") {
-          setError("Timeout: Remoção demorou muito. Verifique sua conexão e tente novamente.")
+          showAlert("error", "Timeout: remoção demorou muito. Verifique sua conexão e tente novamente.")
         } else if (!handleAuthError(e)) {
-          setError(e?.message || "Erro ao remover.")
+          showAlert("error", e?.message || "Erro ao remover.")
         }
       } finally {
-        setDeletingMap((m) => ({ ...m, [id]: false }))
+        setDeletingMap((prev) => ({ ...prev, [id]: false }))
       }
     },
-    [products, handleAuthError],
+    [authHeader, clearProductImageDraft, handleAuthError, showAlert],
   )
+
+  const alertClassName =
+    alert?.type === "success"
+      ? "border-green-200 bg-green-50 text-green-700"
+      : alert?.type === "info"
+        ? "border-blue-200 bg-blue-50 text-blue-700"
+        : "border-red-200 bg-red-50 text-red-700"
 
   return (
     <section className="space-y-6">
-      {/* New product */}
-      <div className="bg-white/90 rounded-2xl border border-orange-100 shadow p-4 md:p-6">
-        <h2 className="text-lg font-semibold mb-4">Adicionar produto</h2>
-        {error ? (
-          <div className="mb-4 text-sm rounded-md border border-red-200 bg-red-50 text-red-700 px-3 py-2">{error}</div>
-        ) : null}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="rounded-2xl border border-orange-100 bg-white/90 p-4 shadow md:p-6">
+        <h2 className="mb-4 text-lg font-semibold">Adicionar produto</h2>
+        {alert ? <div className={`mb-4 rounded-md border px-3 py-2 text-sm ${alertClassName}`}>{alert.message}</div> : null}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-2">
             <div>
               <label className="text-sm font-medium">Nome</label>
               <Input
                 value={pName}
-                onChange={(e) => setPName(e.target.value)}
+                onChange={(event) => setPName(event.target.value)}
                 placeholder="Nome do produto"
                 className="mt-1"
               />
             </div>
             <div>
               <label className="text-sm font-medium">Preço</label>
-              <Input value={pPrice} onChange={(e) => setPPrice(e.target.value)} placeholder="12,90" className="mt-1" />
+              <Input
+                value={pPrice}
+                onChange={(event) => setPPrice(event.target.value)}
+                placeholder="12,90"
+                className="mt-1"
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Preço original (opcional)</label>
               <Input
                 value={pOriginal}
-                onChange={(e) => setPOriginal(e.target.value)}
+                onChange={(event) => setPOriginal(event.target.value)}
                 placeholder="15,90"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Estoque</label>
-              <Input
-                type="number"
-                value={pStock}
-                onChange={(e) => setPStock(Math.max(0, Math.floor(Number(e.target.value))))}
                 className="mt-1"
               />
             </div>
@@ -1076,87 +1285,57 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
               <label className="text-sm font-medium">Descrição</label>
               <Input
                 value={pDesc}
-                onChange={(e) => setPDesc(e.target.value)}
+                onChange={(event) => setPDesc(event.target.value)}
                 placeholder="Descrição do produto"
                 className="mt-1"
               />
             </div>
             <div className="sm:col-span-2">
               <label className="text-sm font-medium">Categorias</label>
-              <div className="space-y-2 mt-1">
-                {pSelectedCategories.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {pSelectedCategories.map((category) => (
-                      <Badge
-                        key={category}
-                        variant="secondary"
-                        className="flex items-center gap-1 bg-pink-100 text-pink-800"
-                      >
-                        {category}
-                        <button
-                          type="button"
-                          onClick={() => removeCategoryFromNewProduct(category)}
-                          className="ml-1 text-pink-600 hover:text-pink-800"
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                <Select onValueChange={addCategoryToNewProduct} disabled={categoriesLoading}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Adicionar categoria"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories
-                      .filter((cat) => !pSelectedCategories.includes(cat.name))
-                      .map((category) => (
-                        <SelectItem key={category.id} value={category.name}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+              <div className="mt-1">
+                <CategoryEditor
+                  selected={pSelectedCategories}
+                  options={categoryOptions}
+                  disabled={categoriesLoading}
+                  onAdd={addCategoryToNewProduct}
+                  onRemove={removeCategoryFromNewProduct}
+                />
               </div>
             </div>
-            <div className="flex items-center gap-6">
+            <div className="flex flex-wrap items-center gap-6">
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={pNew} onChange={(e) => setPNew(e.target.checked)} /> Novo
+                <input type="checkbox" checked={pNew} onChange={(event) => setPNew(event.target.checked)} /> Novo
               </label>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={pBest} onChange={(e) => setPBest(e.target.checked)} /> Mais vendido
+                <input type="checkbox" checked={pBest} onChange={(event) => setPBest(event.target.checked)} /> Mais vendido
               </label>
             </div>
           </div>
+
           <div>
             <label className="text-sm font-medium">Imagem</label>
             <div className="mt-2 flex flex-col gap-3">
               {previewUrl ? (
                 <Image
-                  src={previewUrl || "/placeholder.svg?height=240&width=240&query=preview%20produto"}
+                  src={previewUrl}
                   alt="Pré-visualização"
                   width={240}
                   height={240}
                   unoptimized
-                  className="w-full aspect-square object-cover rounded-xl border border-orange-100"
+                  className="aspect-square w-full rounded-xl border border-orange-100 object-cover"
                 />
               ) : (
-                <div className="w-full aspect-square rounded-xl border border-dashed border-orange-200 flex items-center justify-center text-gray-500">
+                <div className="flex aspect-square w-full items-center justify-center rounded-xl border border-dashed border-orange-200 text-gray-500">
                   Prévia da imagem
                 </div>
               )}
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => onSelectFile(e.target.files?.[0] ?? null)}
-                className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100"
+                onChange={(event) => onSelectFile(event.target.files?.[0] ?? null)}
+                className="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-pink-50 file:px-4 file:py-2 file:text-pink-700 hover:file:bg-pink-100"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Imagens são automaticamente comprimidas para WebP. Máximo {isMobile() ? "5MB" : "10MB"}{" "}
-                {isMobile() ? "(mobile)" : "(desktop)"}.
-                {isMobile() && <span className="block text-orange-600">Mobile: compressão extra aplicada</span>}
-              </p>
+              <p className="text-xs text-gray-500">Imagens são comprimidas para WebP. Máximo 5MB no mobile e 10MB no desktop.</p>
               <Button onClick={createProduct} disabled={creating} className="w-full">
                 {creating ? "Adicionando..." : "Adicionar"}
               </Button>
@@ -1165,87 +1344,158 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
         </div>
       </div>
 
-      {/* List */}
-      <div className="bg-white/90 rounded-2xl border border-orange-100 shadow p-4 md:p-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              className="pl-9"
-              placeholder="Buscar..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-2 w-full sm:w-auto">
-            {modifiedProducts.size > 0 && (
-              <Button
-                onClick={saveAllModified}
-                disabled={savingAll}
-                className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none"
-              >
-                <SaveAll className="w-4 h-4" />
-                <span className="ml-2">{savingAll ? "Salvando..." : `Salvar Tudo (${modifiedProducts.size})`}</span>
+      <div className="rounded-2xl border border-orange-100 bg-white/90 p-4 shadow md:p-6">
+        <div className="mb-4 space-y-4">
+          <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="text-lg font-semibold">Produtos</h2>
+              <p className="text-sm text-gray-500">
+                Exibindo {visibleProducts.length} de {productStats.total} produto(s)
+              </p>
+            </div>
+            <div className="flex w-full gap-2 sm:w-auto">
+              {modifiedProducts.size > 0 ? (
+                <Button
+                  onClick={saveAllModified}
+                  disabled={savingAll}
+                  className="flex-1 bg-green-600 hover:bg-green-700 sm:flex-none"
+                >
+                  {savingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <SaveAll className="h-4 w-4" />}
+                  <span className="ml-2">{savingAll ? "Salvando..." : `Salvar Tudo (${modifiedProducts.size})`}</span>
+                </Button>
+              ) : null}
+              <Button variant="outline" onClick={() => fetchProducts(false)} disabled={loading} className="flex-1 bg-transparent sm:flex-none">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                <span className="ml-2">Recarregar</span>
               </Button>
-            )}
-            <Button variant="outline" onClick={fetchProducts} className="flex-1 sm:flex-none bg-transparent">
-              <RefreshCw className="w-4 h-4" />
-              <span className="ml-2">Recarregar</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+            {[
+              ["Exibindo", visibleProducts.length],
+              ["Total", productStats.total],
+              ["Pendentes", productStats.modified],
+              ["Novos", productStats.newProducts],
+              ["Mais vendidos", productStats.bestSellers],
+              ["Sem imagem", productStats.noImage],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-md border border-orange-100 bg-orange-50/40 px-3 py-2">
+                <div className="text-xs text-gray-500">{label}</div>
+                <div className="text-lg font-semibold text-gray-800">{value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.5fr)_repeat(3,minmax(150px,1fr))_auto]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                className="h-10 pl-9"
+                placeholder="Buscar por nome, descrição ou categoria..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
+
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_CATEGORIES_VALUE}>Todas categorias</SelectItem>
+                {categoryOptions.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos status</SelectItem>
+                <SelectItem value="modified">Com alterações</SelectItem>
+                <SelectItem value="new">Novo</SelectItem>
+                <SelectItem value="best">Mais vendido</SelectItem>
+                <SelectItem value="no-image">Sem imagem</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Ordenar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name-asc">Nome A-Z</SelectItem>
+                <SelectItem value="price-asc">Preço menor</SelectItem>
+                <SelectItem value="price-desc">Preço maior</SelectItem>
+                <SelectItem value="recent">Mais recentes</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button variant="outline" onClick={clearListingFilters} disabled={activeFilterCount === 0 && sortOption === "name-asc"}>
+              Limpar
             </Button>
           </div>
         </div>
 
         {loading ? (
           <div className="py-10 text-center text-gray-600">Carregando...</div>
-        ) : filteredProducts.length === 0 ? (
+        ) : visibleProducts.length === 0 ? (
           <div className="py-10 text-center text-gray-600">Nenhum produto encontrado.</div>
         ) : (
           <>
-            {/* Desktop Table */}
-            <div className="hidden lg:block">
-              <Table>
-                <TableHeader>
+            <div className="hidden max-h-[70vh] overflow-y-auto lg:block">
+              <Table className="min-w-[1040px]">
+                <TableHeader className="sticky top-0 z-10 bg-white">
                   <TableRow>
-                    <TableHead>Produto</TableHead>
-                    <TableHead>Categorias</TableHead>
-                    <TableHead>Preços</TableHead>
-                    <TableHead>Estoque</TableHead>
-                    <TableHead>Ações</TableHead>
+                    <TableHead className="h-10">Produto</TableHead>
+                    <TableHead className="h-10">Categorias</TableHead>
+                    <TableHead className="h-10">Preços</TableHead>
+                    <TableHead className="h-10">Destaques</TableHead>
+                    <TableHead className="h-10">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredProducts.map((product) => (
+                  {visibleProducts.map((product) => (
                     <ProductRowDesktop
                       key={product.id}
                       product={product}
+                      categoryOptions={categoryOptions}
+                      imageDraft={imageDrafts[product.id]}
+                      isModified={modifiedProducts.has(product.id) || Boolean(imageDrafts[product.id])}
+                      isRemoving={!!deletingMap[product.id]}
+                      isSaving={!!savingMap[product.id]}
                       onUpdateLocal={updateLocal}
                       onRemove={deleteRow}
-                      availableCategories={categories}
-                      isRemoving={deletingMap[product.id]}
-                      onRemoveCategory={removeCategoryFromProduct}
-                      isUpdatingCategory={!!categoryUpdatingMap[product.id]}
                       onAddCategory={addCategoryToProduct}
-                      categoriesLoading={categoriesLoading}
+                      onRemoveCategory={removeCategoryFromProduct}
+                      onSelectImage={onSelectProductImage}
                     />
                   ))}
                 </TableBody>
               </Table>
             </div>
 
-            {/* Mobile Cards */}
-            <div className="lg:hidden space-y-4">
-              {filteredProducts.map((product) => (
+            <div className="space-y-4 lg:hidden">
+              {visibleProducts.map((product) => (
                 <ProductCardMobile
                   key={product.id}
                   product={product}
+                  categoryOptions={categoryOptions}
+                  imageDraft={imageDrafts[product.id]}
+                  isModified={modifiedProducts.has(product.id) || Boolean(imageDrafts[product.id])}
+                  isRemoving={!!deletingMap[product.id]}
+                  isSaving={!!savingMap[product.id]}
                   onUpdateLocal={updateLocal}
                   onRemove={deleteRow}
-                  availableCategories={categories}
-                  isRemoving={deletingMap[product.id]}
-                  onRemoveCategory={removeCategoryFromProduct}
-                  isUpdatingCategory={!!categoryUpdatingMap[product.id]}
                   onAddCategory={addCategoryToProduct}
-                  categoriesLoading={categoriesLoading}
+                  onRemoveCategory={removeCategoryFromProduct}
+                  onSelectImage={onSelectProductImage}
                 />
               ))}
             </div>

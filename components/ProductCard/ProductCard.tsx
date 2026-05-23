@@ -26,30 +26,22 @@ const ProductCard = ({
   formatProductName,
 }: ProductCardProps) => {
   const displayName = product.nome_exibicao || formatProductName(product.nome_produto)
-  const isOutOfStock = product.stock <= 0
 
   return (
     <motion.div whileHover={{ y: -8, scale: 1.02 }} className="group">
-      <Card
-        className={`overflow-hidden border-0 shadow-xl hover:shadow-2xl transition-all duration-500 bg-white/90 backdrop-blur-sm group-hover:bg-white h-full ${isOutOfStock ? "opacity-60 grayscale" : ""}`}
-      >
-        <div
-          className={`relative ${!isOutOfStock ? "cursor-pointer" : "cursor-not-allowed"}`}
-          onClick={() => !isOutOfStock && onOpen(product)}
-        >
+      <Card className="overflow-hidden border-0 shadow-xl hover:shadow-2xl transition-all duration-500 bg-white/90 backdrop-blur-sm group-hover:bg-white h-full">
+        <div className="relative cursor-pointer" onClick={() => onOpen(product)}>
           {!imageErrors[product.id] ? (
             <Image
               src={product.image_url || "/placeholder.svg?height=400&width=400&query=produto%20sorvete"}
               alt={displayName}
               width={400}
               height={400}
-              className={`w-full h-64 object-cover transition-transform duration-500 ${!isOutOfStock ? "group-hover:scale-110" : ""}`}
+              className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-110"
               onError={() => setImageErrors({ ...imageErrors, [product.id]: true })}
             />
           ) : (
-            <div
-              className={`w-full h-64 bg-gradient-to-br from-orange-100 via-pink-100 to-amber-100 flex items-center justify-center transition-transform duration-500 ${!isOutOfStock ? "group-hover:scale-110" : ""}`}
-            >
+            <div className="w-full h-64 bg-gradient-to-br from-orange-100 via-pink-100 to-amber-100 flex items-center justify-center transition-transform duration-500 group-hover:scale-110">
               <div className="text-center">
                 <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-pink-300 to-orange-300 rounded-full flex items-center justify-center">
                   <span className="text-3xl">🍦</span>
@@ -60,17 +52,11 @@ const ProductCard = ({
           )}
 
           <div className="absolute top-3 left-3 flex flex-col space-y-2">
-            {isOutOfStock ? (
-              <Badge className="bg-gray-500 text-white font-semibold">FORA DE ESTOQUE</Badge>
-            ) : (
-              <>
-                {product.isNew && <Badge className="bg-green-500 text-white font-semibold">NOVO</Badge>}
-                {product.isBestSeller && <Badge className="bg-orange-500 text-white font-semibold">MAIS VENDIDO</Badge>}
-              </>
-            )}
+            {product.isNew && <Badge className="bg-green-500 text-white font-semibold">NOVO</Badge>}
+            {product.isBestSeller && <Badge className="bg-orange-500 text-white font-semibold">MAIS VENDIDO</Badge>}
           </div>
 
-          {!isOutOfStock && product.originalPrice > product.price && (
+          {product.originalPrice > product.price && (
             <Badge className="absolute top-3 right-3 bg-red-500 text-white font-bold">
               -{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
             </Badge>
@@ -82,20 +68,13 @@ const ProductCard = ({
             <Badge variant="outline" className="text-xs font-medium border-orange-200 text-pink-600">
               {formatCategoryName(product.categoria)}
             </Badge>
-            {!isOutOfStock && (
-              <div className="flex items-center space-x-1">
-                <Star className="w-4 h-4 text-yellow-400 fill-current" />
-              </div>
-            )}
+            <div className="flex items-center space-x-1">
+              <Star className="w-4 h-4 text-yellow-400 fill-current" />
+            </div>
           </div>
 
-          <div
-            className={`${!isOutOfStock ? "cursor-pointer" : "cursor-not-allowed"}`}
-            onClick={() => !isOutOfStock && onOpen(product)}
-          >
-            <h3
-              className={`text-lg font-bold mb-2 text-gray-800 transition-colors ${!isOutOfStock ? "group-hover:text-pink-600" : ""}`}
-            >
+          <div className="cursor-pointer" onClick={() => onOpen(product)}>
+            <h3 className="text-lg font-bold mb-2 text-gray-800 transition-colors group-hover:text-pink-600">
               {displayName}
             </h3>
             <p className="text-gray-600 mb-4 text-sm leading-relaxed line-clamp-2 flex-grow">
@@ -107,30 +86,25 @@ const ProductCard = ({
             <div className="flex flex-col">
               <div className="flex items-center space-x-2">
                 <span className="text-2xl font-bold text-pink-600">R$ {product.price.toFixed(2)}</span>
-                {!isOutOfStock && product.originalPrice > product.price && (
+                {product.originalPrice > product.price && (
                   <span className="text-sm text-gray-400 line-through">R$ {product.originalPrice.toFixed(2)}</span>
                 )}
               </div>
             </div>
 
             <motion.button
-              whileHover={!isOutOfStock ? { scale: 1.05 } : {}}
-              whileTap={!isOutOfStock ? { scale: 0.95 } : {}}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               data-product-id={product.id}
               onClick={(event: React.MouseEvent) => {
                 event.stopPropagation()
-                if (!isOutOfStock) onAddToCart(product)
+                onAddToCart(product)
               }}
-              disabled={isOutOfStock}
-              className={`px-6 py-3 rounded-2xl transition-all duration-300 shadow-lg flex items-center space-x-2 font-semibold ${
-                isOutOfStock
-                  ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                  : "bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 hover:from-pink-600 hover:via-rose-600 hover:to-pink-700 text-white hover:shadow-xl"
-              }`}
+              className="px-6 py-3 rounded-2xl transition-all duration-300 shadow-lg flex items-center space-x-2 font-semibold bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 hover:from-pink-600 hover:via-rose-600 hover:to-pink-700 text-white hover:shadow-xl"
             >
               <Plus className="w-4 h-4 max-sm:hidden" />
               <ShoppingCart className="w-4 h-4 sm:hidden" />
-              <span className="max-sm:hidden">{isOutOfStock ? "Indisponível" : "Adicionar"}</span>
+              <span className="max-sm:hidden">Adicionar</span>
             </motion.button>
           </div>
         </CardContent>
