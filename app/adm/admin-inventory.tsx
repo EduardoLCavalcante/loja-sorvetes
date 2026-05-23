@@ -23,6 +23,7 @@ interface Product {
   image_url: string | null
   is_new: boolean
   is_best_seller: boolean
+  is_available: boolean
 }
 
 type AlertState = {
@@ -37,7 +38,7 @@ type ImageDraft = {
   previewUrl: string
 }
 
-type StatusFilter = "all" | "modified" | "new" | "best" | "no-image"
+type StatusFilter = "all" | "modified" | "new" | "best" | "no-image" | "available" | "unavailable"
 type SortOption = "name-asc" | "price-asc" | "price-desc" | "recent"
 
 const DEFAULT_CATEGORY = "Geral"
@@ -332,6 +333,9 @@ const ProductRowDesktop = React.memo(
                 </Badge>
                 {isModified ? <Badge className="bg-amber-100 text-amber-800 text-[11px]">Pendente</Badge> : null}
                 {missingImage ? <Badge className="bg-gray-100 text-gray-700 text-[11px]">Sem imagem</Badge> : null}
+                {!product.is_available ? (
+                  <Badge className="bg-red-100 text-red-800 text-[11px]">Indisponível</Badge>
+                ) : null}
               </div>
               <DebouncedTextInput
                 value={product.nome_produto}
@@ -399,6 +403,14 @@ const ProductRowDesktop = React.memo(
               />
               Mais vendido
             </label>
+            <label className="flex items-center gap-2 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={product.is_available}
+                onChange={(event) => onUpdateLocal(product.id, { is_available: event.target.checked })}
+              />
+              Disponível
+            </label>
           </div>
         </td>
         <td className="p-2.5 align-top">
@@ -449,6 +461,7 @@ const ProductCardMobile = React.memo(
             </Badge>
             {isModified ? <Badge className="bg-amber-100 text-amber-800 text-[11px]">Pendente</Badge> : null}
             {missingImage ? <Badge className="bg-gray-100 text-gray-700 text-[11px]">Sem imagem</Badge> : null}
+            {!product.is_available ? <Badge className="bg-red-100 text-red-800 text-[11px]">Indisponível</Badge> : null}
           </div>
           <div className="flex gap-3">
             {imageSrc ? (
@@ -524,6 +537,14 @@ const ProductCardMobile = React.memo(
               />
               Mais vendido
             </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={product.is_available}
+                onChange={(event) => onUpdateLocal(product.id, { is_available: event.target.checked })}
+              />
+              Disponível
+            </label>
           </div>
 
           <div>
@@ -572,6 +593,7 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
   const [pSelectedCategories, setPSelectedCategories] = useState<string[]>([])
   const [pNew, setPNew] = useState(false)
   const [pBest, setPBest] = useState(false)
+  const [pAvailable, setPAvailable] = useState(true)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState("")
   const [imageDrafts, setImageDrafts] = useState<Record<number, ImageDraft>>({})
@@ -740,6 +762,8 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
         if (product.is_new) stats.newProducts += 1
         if (product.is_best_seller) stats.bestSellers += 1
         if (!hasProductImage(product, imageDraft)) stats.noImage += 1
+        if (product.is_available) stats.available += 1
+        else stats.unavailable += 1
 
         return stats
       },
@@ -749,6 +773,8 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
         newProducts: 0,
         bestSellers: 0,
         noImage: 0,
+        available: 0,
+        unavailable: 0,
       },
     )
   }, [imageDrafts, modifiedProducts, products])
@@ -771,7 +797,9 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
         (statusFilter === "modified" && modified) ||
         (statusFilter === "new" && product.is_new) ||
         (statusFilter === "best" && product.is_best_seller) ||
-        (statusFilter === "no-image" && !hasImage)
+        (statusFilter === "no-image" && !hasImage) ||
+        (statusFilter === "available" && product.is_available) ||
+        (statusFilter === "unavailable" && !product.is_available)
 
       return matchesSearch && matchesCategory && matchesStatus
     })
@@ -986,6 +1014,7 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
       original_price: product.original_price,
       is_new: product.is_new,
       is_best_seller: product.is_best_seller,
+      is_available: product.is_available,
       categoria: product.categoria.length > 0 ? product.categoria : [DEFAULT_CATEGORY],
     }
   }, [])
@@ -1008,6 +1037,7 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
         formData.append("original_price", String(payload.original_price))
         formData.append("is_new", String(payload.is_new))
         formData.append("is_best_seller", String(payload.is_best_seller))
+        formData.append("is_available", String(payload.is_available))
         formData.append("categoria", JSON.stringify(payload.categoria))
         formData.append("image", imageDraft.file)
 
@@ -1063,6 +1093,7 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
       formData.append("categoria", JSON.stringify(pSelectedCategories.length > 0 ? pSelectedCategories : [DEFAULT_CATEGORY]))
       formData.append("is_new", String(pNew))
       formData.append("is_best_seller", String(pBest))
+      formData.append("is_available", String(pAvailable))
       formData.append("image", selectedFile)
 
       const res = await fetchWithTimeout(
@@ -1085,6 +1116,7 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
       setPSelectedCategories([])
       setPNew(false)
       setPBest(false)
+      setPAvailable(true)
       setSelectedFile(null)
       setPreviewUrl("")
 
@@ -1112,6 +1144,7 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
     fetchCategories,
     fetchProducts,
     handleAuthError,
+    pAvailable,
     pBest,
     pDesc,
     pName,
@@ -1309,6 +1342,9 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={pBest} onChange={(event) => setPBest(event.target.checked)} /> Mais vendido
               </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={pAvailable} onChange={(event) => setPAvailable(event.target.checked)} /> Disponível
+              </label>
             </div>
           </div>
 
@@ -1371,11 +1407,13 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
             {[
               ["Exibindo", visibleProducts.length],
               ["Total", productStats.total],
               ["Pendentes", productStats.modified],
+              ["Disponíveis", productStats.available],
+              ["Indisponíveis", productStats.unavailable],
               ["Novos", productStats.newProducts],
               ["Mais vendidos", productStats.bestSellers],
               ["Sem imagem", productStats.noImage],
@@ -1421,6 +1459,8 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
                 <SelectItem value="modified">Com alterações</SelectItem>
                 <SelectItem value="new">Novo</SelectItem>
                 <SelectItem value="best">Mais vendido</SelectItem>
+                <SelectItem value="available">Disponíveis</SelectItem>
+                <SelectItem value="unavailable">Indisponíveis</SelectItem>
                 <SelectItem value="no-image">Sem imagem</SelectItem>
               </SelectContent>
             </Select>
