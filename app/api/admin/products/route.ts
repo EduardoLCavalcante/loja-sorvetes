@@ -30,6 +30,7 @@ type ProductUpdate = {
   caminho?: string
   is_new?: boolean
   is_best_seller?: boolean
+  is_available?: boolean
 }
 
 type MoneyParseResult = { ok: true; value?: number } | { ok: false; error: string }
@@ -122,6 +123,7 @@ function normalizeRow(url: string, p: any) {
     image_url: imageUrl,
     is_new: !!p?.is_new,
     is_best_seller: !!p?.is_best_seller,
+    is_available: p?.is_available !== false,
   }
 }
 
@@ -290,6 +292,7 @@ function applyJsonUpdate(body: any): UpdateBuildResult {
 
   if ("is_new" in body) update.is_new = parseBooleanField(body.is_new)
   if ("is_best_seller" in body) update.is_best_seller = parseBooleanField(body.is_best_seller)
+  if ("is_available" in body) update.is_available = parseBooleanField(body.is_available)
 
   if ("categoria" in body) {
     const parsed = parseCategories(body.categoria)
@@ -328,6 +331,7 @@ function applyFormUpdate(form: FormData): UpdateBuildResult {
 
   if (form.has("is_new")) update.is_new = parseBooleanField(form.get("is_new"))
   if (form.has("is_best_seller")) update.is_best_seller = parseBooleanField(form.get("is_best_seller"))
+  if (form.has("is_available")) update.is_available = parseBooleanField(form.get("is_available"))
 
   if (form.has("categoria")) {
     const parsed = parseCategories(form.get("categoria"))
@@ -415,6 +419,7 @@ export async function POST(req: Request) {
       caminho: uploaded.publicUrl,
       is_new: parseBooleanField(form.get("is_new")),
       is_best_seller: parseBooleanField(form.get("is_best_seller")),
+      is_available: form.has("is_available") ? parseBooleanField(form.get("is_available")) : true,
     }
 
     const { data: inserted, error: insertError } = await supabase.from("products").insert(payload).select("*").single()

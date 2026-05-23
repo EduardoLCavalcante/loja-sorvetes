@@ -115,7 +115,8 @@ export default function DliceEcommerce() {
         }
 
         const apiProducts: ProductRecord[] = Array.isArray(json?.products) ? json.products : []
-        const mapped: ProductWithDefaults[] = apiProducts.map((p) => {
+        const availableProducts = apiProducts.filter((p) => p.is_available !== false)
+        const mapped: ProductWithDefaults[] = availableProducts.map((p) => {
           const priceNum = typeof p.price === "number" ? p.price : Number(p.price)
           const original = p.original_price != null ? Number(p.original_price) : priceNum
           return {
@@ -153,6 +154,7 @@ export default function DliceEcommerce() {
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
+      if ((product as ProductRecord).is_available === false) return false
       const matchesCategory = selectedCategory === ALL_CATEGORIES || product.categoria.includes(selectedCategory)
       const matchesSearch = (product.nome_exibicao ? product.nome_exibicao : formatProductName(product.nome_produto))
         .toLowerCase()
@@ -167,6 +169,7 @@ export default function DliceEcommerce() {
       .reduce(
         (acc, category) => {
           const filtered = products
+            .filter((product) => (product as ProductRecord).is_available !== false)
             .filter((product) => product.categoria.includes(category))
             .filter((product) =>
               (product.nome_exibicao ? product.nome_exibicao : formatProductName(product.nome_produto))

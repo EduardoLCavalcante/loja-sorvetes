@@ -8,6 +8,7 @@ export type ProductRecord = {
   caminho: string
   is_new?: boolean
   is_best_seller?: boolean
+  is_available?: boolean
   image_url?: string | null
 }
 

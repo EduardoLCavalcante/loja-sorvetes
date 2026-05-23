@@ -41,6 +41,7 @@ export async function GET() {
           )
         )
       `)
+      .eq("is_available", true)
       .order("price", { ascending: false })
 
     if (productsError) {
@@ -85,13 +86,18 @@ export async function GET() {
         caminho: p.caminho,
         is_new: !!p?.is_new,
         is_best_seller: !!p?.is_best_seller,
+        is_available: !!p?.is_available,
         image_url: imageUrl,
       }
     })
 
-    const { data: categoriesData } = await supabase.from("categories").select("name").order("name")
-
-    const categories = (categoriesData || []).map((c) => c.name).filter(Boolean)
+    const categorySet = new Set<string>()
+    for (const product of out) {
+      for (const category of product.categoria) {
+        if (category) categorySet.add(category)
+      }
+    }
+    const categories = Array.from(categorySet).sort((a, b) => a.localeCompare(b, "pt-BR"))
 
     return NextResponse.json({ products: out, categories }, { headers: noStoreHeaders })
   } catch (err: any) {
