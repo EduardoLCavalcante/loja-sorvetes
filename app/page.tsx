@@ -45,7 +45,6 @@ export default function DliceEcommerce() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES)
   const [searchTerm, setSearchTerm] = useState("")
-  const [showFloatingCart, setShowFloatingCart] = useState(false)
   const [products, setProducts] = useState<ProductWithDefaults[]>([])
   const [categories, setCategories] = useState<string[]>([ALL_CATEGORIES])
   const [loading, setLoading] = useState(true)
@@ -147,10 +146,6 @@ export default function DliceEcommerce() {
     }
     load()
   }, [])
-
-  useEffect(() => {
-    setShowFloatingCart(getTotalItems() > 0)
-  }, [getTotalItems])
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -318,7 +313,7 @@ Obrigado pela preferencia!`
       />
 
       <FloatingCartButton
-        visible={showFloatingCart}
+        visible={getTotalItems() > 0}
         totalItems={getTotalItems()}
         totalPrice={getTotalPrice()}
         onCartOpen={() => setIsCartOpen(true)}
