@@ -1,6 +1,6 @@
 "use client"
 
-import { FormEvent, useEffect, useRef, useState } from "react"
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -93,10 +93,10 @@ export default function AdminPage() {
     }
   }
 
-  const forceSignOut = async () => {
+  const forceSignOut = useCallback(async () => {
     await supabase.auth.signOut()
     setError("Sessão inválida. Faça login novamente.")
-  }
+  }, [supabase])
 
   if (!ready) {
     return (

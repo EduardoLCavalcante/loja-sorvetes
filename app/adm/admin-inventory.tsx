@@ -6,7 +6,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select } from "@/components/ui/select"
 import { Search, RefreshCw, Trash2, SaveAll, Loader2, Upload } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableRow, TableHead } from "@/components/ui/table"
@@ -126,6 +126,11 @@ function useDebouncedInput<T>(
   const debouncedValue = useDebounce(localValue, delay)
   const isInitialMount = useRef(true)
   const lastCommittedValue = useRef<string>(String(initialValue ?? ""))
+  const onUpdateRef = useRef(onUpdate)
+  const transformRef = useRef(transform)
+
+  onUpdateRef.current = onUpdate
+  transformRef.current = transform
 
   useEffect(() => {
     const nextValue = String(initialValue ?? "")
@@ -142,10 +147,12 @@ function useDebouncedInput<T>(
     }
 
     if (debouncedValue !== lastCommittedValue.current) {
-      onUpdate(transform ? transform(debouncedValue) : (debouncedValue as T))
+      const fn = onUpdateRef.current
+      const tx = transformRef.current
+      fn(tx ? tx(debouncedValue) : (debouncedValue as T))
       lastCommittedValue.current = debouncedValue
     }
-  }, [debouncedValue, onUpdate, transform])
+  }, [debouncedValue])
 
   return {
     value: localValue,
@@ -245,21 +252,23 @@ const CategoryEditor = React.memo(
         ) : null}
 
         <div className={compact ? "space-y-2" : "grid grid-cols-1 gap-2"}>
-          <Select key={selected.join("|")} onValueChange={onAdd} disabled={disabled || availableOptions.length === 0}>
-            <SelectTrigger className={compact ? "h-9" : "h-10"}>
-              <SelectValue placeholder={availableOptions.length > 0 ? "Adicionar categoria" : "Sem categorias"} />
-            </SelectTrigger>
-            <SelectContent>
-              {availableOptions.length > 0 ? (
-                availableOptions.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))
-              ) : (
-                <div className="px-2 py-2 text-sm text-gray-500">Nenhuma opção disponível</div>
-              )}
-            </SelectContent>
+          <Select
+            value=""
+            onChange={(event) => {
+              if (event.target.value) onAdd(event.target.value)
+            }}
+            disabled={disabled || availableOptions.length === 0}
+            className={compact ? "h-9" : "h-10"}
+            aria-label="Adicionar categoria"
+          >
+            <option value="" disabled>
+              {availableOptions.length > 0 ? "Adicionar categoria" : "Sem categorias"}
+            </option>
+            {availableOptions.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
           </Select>
 
           <div className="flex gap-2">
@@ -1436,45 +1445,42 @@ export default function AdminInventory({ onAuthError }: { onAuthError?: () => vo
               />
             </div>
 
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="Categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_CATEGORIES_VALUE}>Todas categorias</SelectItem>
-                {categoryOptions.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+            <Select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              aria-label="Filtrar por categoria"
+            >
+              <option value={ALL_CATEGORIES_VALUE}>Todas categorias</option>
+              {categoryOptions.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
             </Select>
 
-            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos status</SelectItem>
-                <SelectItem value="modified">Com alterações</SelectItem>
-                <SelectItem value="new">Novo</SelectItem>
-                <SelectItem value="best">Mais vendido</SelectItem>
-                <SelectItem value="available">Disponíveis</SelectItem>
-                <SelectItem value="unavailable">Indisponíveis</SelectItem>
-                <SelectItem value="no-image">Sem imagem</SelectItem>
-              </SelectContent>
+            <Select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+              aria-label="Filtrar por status"
+            >
+              <option value="all">Todos status</option>
+              <option value="modified">Com alterações</option>
+              <option value="new">Novo</option>
+              <option value="best">Mais vendido</option>
+              <option value="available">Disponíveis</option>
+              <option value="unavailable">Indisponíveis</option>
+              <option value="no-image">Sem imagem</option>
             </Select>
 
-            <Select value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="Ordenar" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="name-asc">Nome A-Z</SelectItem>
-                <SelectItem value="price-asc">Preço menor</SelectItem>
-                <SelectItem value="price-desc">Preço maior</SelectItem>
-                <SelectItem value="recent">Mais recentes</SelectItem>
-              </SelectContent>
+            <Select
+              value={sortOption}
+              onChange={(event) => setSortOption(event.target.value as SortOption)}
+              aria-label="Ordenar produtos"
+            >
+              <option value="name-asc">Nome A-Z</option>
+              <option value="price-asc">Preço menor</option>
+              <option value="price-desc">Preço maior</option>
+              <option value="recent">Mais recentes</option>
             </Select>
 
             <Button variant="outline" onClick={clearListingFilters} disabled={activeFilterCount === 0 && sortOption === "name-asc"}>
