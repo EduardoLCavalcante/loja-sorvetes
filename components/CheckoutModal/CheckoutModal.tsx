@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import React, { useState, useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Button } from '../ui/button'
 import { Minus, Phone, Plus, ShoppingCart, X } from 'lucide-react'
 import { Label } from '../ui/label'
@@ -7,11 +7,15 @@ import { Input } from '../ui/input'
 import Mapa from '../Mapa/Mapa'
 import Image from 'next/image'
 import { checkoutSchema } from '@/lib/schemas/checkout'
+import { normalizeBrazilianPhone } from '@/lib/orders/normalizers'
 
 type DeliveryInfo = {
   name: string
+  phone: string
   paymentMethod: string
   changeFor: string
+  houseNumber: string
+  noHouseNumber: boolean
   complement: string
   address: string
   neighborhood: string
@@ -40,7 +44,7 @@ type CheckoutModalProps = {
   deliveryInfo: DeliveryInfo
   setDeliveryInfo: React.Dispatch<React.SetStateAction<DeliveryInfo>>
   getTotalPrice: () => number
-  generateWhatsAppMessage: () => void
+  generateWhatsAppMessage: (shouldSaveCheckoutData: boolean) => Promise<void>
   isProcessingOrder: boolean
   selectedExtras: { [key: string]: number }
   toggleExtra: (extraId: string) => void
@@ -49,6 +53,31 @@ type CheckoutModalProps = {
   adicionais: { id: string; nome: string; preco: number; imagem: string }[]
 }
 
+const CHECKOUT_PROFILE_KEY = "dlice.checkout-profile.v1"
+
+type SavedCheckoutProfile = {
+  version: 1 | 2
+  phoneNormalized: string
+  name: string
+  address: string
+  houseNumber?: string
+  noHouseNumber?: boolean
+  complement: string
+  neighborhood: string
+  paymentMethod: string
+  deliveryType: string
+}
+
+function readSavedProfile() {
+  try {
+    const raw = window.localStorage.getItem(CHECKOUT_PROFILE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as SavedCheckoutProfile
+    return (parsed?.version === 1 || parsed?.version === 2) && parsed.phoneNormalized ? parsed : null
+  } catch {
+    return null
+  }
+}
 
 const CheckoutModal = (props: CheckoutModalProps) => {
   const formatProductName = (name: string) =>
@@ -59,6 +88,9 @@ const CheckoutModal = (props: CheckoutModalProps) => {
   .trim()
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [saveForNextTime, setSaveForNextTime] = useState(false)
+  const [autoFillMessage, setAutoFillMessage] = useState<string | null>(null)
 
   const isFormValid = useMemo(() => {
     const result = checkoutSchema.safeParse(props.deliveryInfo)
@@ -67,14 +99,41 @@ const CheckoutModal = (props: CheckoutModalProps) => {
 
   const fieldLabels: Record<string, string> = {
     name: "Nome",
+    phone: "Telefone",
     address: "Endereço",
+    houseNumber: "Número",
     neighborhood: "Bairro",
     
     paymentMethod: "Forma de Pagamento",
     changeFor: "Troco",
   }
 
-  const handleSubmit = () => {
+  const handlePhoneChange = (phone: string) => {
+    const savedProfile = readSavedProfile()
+    const normalizedPhone = normalizeBrazilianPhone(phone)
+
+    if (savedProfile && normalizedPhone === savedProfile.phoneNormalized) {
+      props.setDeliveryInfo((current) => ({
+        ...current,
+        phone,
+        name: savedProfile.name,
+        address: savedProfile.address,
+        houseNumber: savedProfile.houseNumber || "",
+        noHouseNumber: Boolean(savedProfile.noHouseNumber),
+        complement: savedProfile.complement,
+        neighborhood: savedProfile.neighborhood,
+        paymentMethod: savedProfile.paymentMethod,
+        deliveryType: savedProfile.deliveryType,
+      }))
+      setAutoFillMessage("Preenchemos seus dados salvos neste dispositivo.")
+      return
+    }
+
+    props.setDeliveryInfo((current) => ({ ...current, phone }))
+    setAutoFillMessage(null)
+  }
+
+  const handleSubmit = async () => {
     const result = checkoutSchema.safeParse(props.deliveryInfo)
     if (!result.success) {
       const errors: Record<string, string> = {}
@@ -86,7 +145,12 @@ const CheckoutModal = (props: CheckoutModalProps) => {
       return
     }
     setFormErrors({})
-    props.generateWhatsAppMessage()
+    setSubmitError(null)
+    try {
+      await props.generateWhatsAppMessage(saveForNextTime)
+    } catch (error: any) {
+      setSubmitError(error?.message || "Não foi possível registrar o pedido. Tente novamente.")
+    }
   }
 
   return (
@@ -128,6 +192,23 @@ const CheckoutModal = (props: CheckoutModalProps) => {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
+                          <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">
+                            Telefone com DDD
+                          </Label>
+                          <Input
+                            id="phone"
+                            type="tel"
+                            inputMode="tel"
+                            value={props.deliveryInfo.phone}
+                            onChange={(e) => handlePhoneChange(e.target.value)}
+                            placeholder="(88) 99999-9999"
+                            autoComplete="tel"
+                            className={`mt-2 p-3 rounded-xl border-2 focus:border-pink-300 ${formErrors.phone ? "border-red-300" : "border-orange-100"}`}
+                          />
+                          {formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}
+                          {autoFillMessage && <p className="text-emerald-700 text-xs mt-1">{autoFillMessage}</p>}
+                        </div>
+                        <div>
                           <Label htmlFor="name" className="text-sm font-semibold text-gray-700">
                             Nome Completo
                           </Label>
@@ -136,24 +217,71 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                             value={props.deliveryInfo.name}
                             onChange={(e) => props.setDeliveryInfo({ ...props.deliveryInfo, name: e.target.value })}
                             placeholder="Seu nome completo"
+                            autoComplete="name"
                             className={`mt-2 p-3 rounded-xl border-2 focus:border-pink-300 ${formErrors.name ? "border-red-300" : "border-orange-100"}`}
                           />
                           {formErrors.name && <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>}
                         </div>
                       </div>
 
-                      <div>
-                        <Label htmlFor="address" className="text-sm font-semibold text-gray-700">
-                          Endereço Completo
-                        </Label>
-                        <Input
-                          id="address"
-                          value={props.deliveryInfo.address}
-                          onChange={(e) => props.setDeliveryInfo({ ...props.deliveryInfo, address: e.target.value })}
-                          placeholder="Rua, número"
-                          className={`mt-2 p-3 rounded-xl border-2 focus:border-pink-300 ${formErrors.address ? "border-red-300" : "border-orange-100"}`}
+                      <label className="flex items-start gap-3 rounded-xl border border-pink-100 bg-pink-50/60 p-3 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={saveForNextTime}
+                          onChange={(event) => setSaveForNextTime(event.target.checked)}
+                          className="mt-0.5 h-4 w-4 rounded border-pink-300 text-pink-600 focus:ring-pink-500"
                         />
-                        {formErrors.address && <p className="text-red-500 text-xs mt-1">{formErrors.address}</p>}
+                        <span>
+                          Salvar meus dados neste dispositivo para preencher mais rápido na próxima compra.
+                        </span>
+                      </label>
+
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_11rem]">
+                        <div>
+                          <Label htmlFor="address" className="text-sm font-semibold text-gray-700">
+                            Endereço
+                          </Label>
+                          <Input
+                            id="address"
+                            value={props.deliveryInfo.address}
+                            onChange={(e) => props.setDeliveryInfo({ ...props.deliveryInfo, address: e.target.value })}
+                            placeholder="Rua, avenida ou praça"
+                            autoComplete="address-line1"
+                            className={`mt-2 p-3 rounded-xl border-2 focus:border-pink-300 ${formErrors.address ? "border-red-300" : "border-orange-100"}`}
+                          />
+                          {formErrors.address && <p className="text-red-500 text-xs mt-1">{formErrors.address}</p>}
+                        </div>
+                        <div>
+                          <Label htmlFor="houseNumber" className="text-sm font-semibold text-gray-700">
+                            Número
+                          </Label>
+                          <Input
+                            id="houseNumber"
+                            value={props.deliveryInfo.houseNumber}
+                            onChange={(e) => props.setDeliveryInfo({ ...props.deliveryInfo, houseNumber: e.target.value })}
+                            placeholder="Ex.: 120"
+                            inputMode="numeric"
+                            disabled={props.deliveryInfo.noHouseNumber}
+                            className={`mt-2 p-3 rounded-xl border-2 focus:border-pink-300 disabled:cursor-not-allowed disabled:bg-gray-50 ${formErrors.houseNumber ? "border-red-300" : "border-orange-100"}`}
+                          />
+                          {formErrors.houseNumber && <p className="text-red-500 text-xs mt-1">{formErrors.houseNumber}</p>}
+                          <label className="mt-2 flex items-center gap-2 text-xs font-medium text-gray-600">
+                            <input
+                              type="checkbox"
+                              checked={props.deliveryInfo.noHouseNumber}
+                              onChange={(event) => {
+                                const noHouseNumber = event.target.checked
+                                props.setDeliveryInfo((current) => ({
+                                  ...current,
+                                  noHouseNumber,
+                                  houseNumber: noHouseNumber ? "S/N" : current.houseNumber === "S/N" ? "" : current.houseNumber,
+                                }))
+                              }}
+                              className="h-3.5 w-3.5 rounded border-pink-300 text-pink-600 focus:ring-pink-500"
+                            />
+                            Sem número (S/N)
+                          </label>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -377,11 +505,16 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                           </p>
                         </motion.div>
                       )}
+                      {submitError && (
+                        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+                          {submitError}
+                        </div>
+                      )}
 
                       {/* --- NOVO CONTAINER STICKY PARA O BOTÃO --- */}
                       <div className="sticky bottom-0 bg-white pt-4 pb-2 space-y-4 border-t border-orange-100 z-10 -mx-6 px-6 -mb-6 md:-mx-8 md:px-8 md:-mb-8 rounded-b-3xl">
                         <Button
-                          onClick={handleSubmit}
+                          onClick={() => void handleSubmit()}
                           disabled={props.isProcessingOrder || !isFormValid}
                           className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl text-lg font-semibold flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                         >

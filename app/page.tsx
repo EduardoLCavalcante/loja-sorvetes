@@ -13,6 +13,9 @@ import { type ProductRecord, type ProductWithDefaults } from "@/types/product"
 import { adicionais } from "@/lib/data/extra"
 import { ALL_CATEGORIES } from "@/lib/constants"
 import CheckoutModal from "@/components/CheckoutModal/CheckoutModal"
+import { normalizeBrazilianPhone } from "@/lib/orders/normalizers"
+
+const CHECKOUT_PROFILE_KEY = "dlice.checkout-profile.v1"
 const formatProductName = (name: string) =>
   name
     .replace(/-/g, " ")
@@ -51,7 +54,10 @@ export default function DliceEcommerce() {
   const [error, setError] = useState<string | null>(null)
   const [deliveryInfo, setDeliveryInfo] = useState({
     name: "",
+    phone: "",
     address: "",
+    houseNumber: "",
+    noHouseNumber: false,
     complement: "",
     neighborhood: "",
     paymentMethod: "",
@@ -203,10 +209,55 @@ export default function DliceEcommerce() {
     setModalImageError(false)
   }
 
-  const generateWhatsAppMessage = async () => {
+  const generateWhatsAppMessage = async (shouldSaveCheckoutData: boolean) => {
     setIsProcessingOrder(true)
+    const whatsappWindow = window.open("", "_blank")
 
     try {
+      const orderResponse = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deliveryInfo,
+          items: cart.map((item) => ({ id: item.id, quantity: item.quantity })),
+          selectedExtras,
+        }),
+      })
+      const orderPayload = await orderResponse.json().catch(() => ({}))
+      if (!orderResponse.ok) {
+        throw new Error(orderPayload?.error || "Não foi possível registrar o pedido.")
+      }
+
+      if (shouldSaveCheckoutData) {
+        const phoneNormalized = normalizeBrazilianPhone(deliveryInfo.phone)
+        let savedProfile: any = null
+        try {
+          savedProfile = JSON.parse(window.localStorage.getItem(CHECKOUT_PROFILE_KEY) || "null")
+        } catch {
+          savedProfile = null
+        }
+
+        window.localStorage.setItem(
+          CHECKOUT_PROFILE_KEY,
+          JSON.stringify({
+            version: 2,
+            phoneNormalized,
+            // O nome salvo é preservado quando o telefone já era conhecido neste dispositivo.
+            name:
+              (savedProfile?.version === 1 || savedProfile?.version === 2) && savedProfile?.phoneNormalized === phoneNormalized
+                ? savedProfile.name
+                : deliveryInfo.name.trim(),
+            address: deliveryInfo.address.trim(),
+            houseNumber: deliveryInfo.noHouseNumber ? "S/N" : deliveryInfo.houseNumber.trim(),
+            noHouseNumber: deliveryInfo.noHouseNumber,
+            complement: deliveryInfo.complement.trim(),
+            neighborhood: deliveryInfo.neighborhood.trim(),
+            paymentMethod: deliveryInfo.paymentMethod,
+            deliveryType: deliveryInfo.deliveryType,
+          }),
+        )
+      }
+
       // Gerar mensagem do WhatsApp
       const items = cart
         .map(
@@ -234,13 +285,14 @@ export default function DliceEcommerce() {
       const deliveryText =
         deliveryInfo.deliveryType === "retirada"
           ? "RETIRADA NA LOJA\nR. Idelfonso Solon de Freitas, 558 - Popular, Limoeiro do Norte - CE"
-          : `ENDERECO DE ENTREGA:\n${deliveryInfo.address}${deliveryInfo.complement ? `, ${deliveryInfo.complement}` : ""}\n${deliveryInfo.neighborhood}`
+          : `ENDERECO DE ENTREGA:\n${deliveryInfo.address}, ${deliveryInfo.noHouseNumber ? "S/N" : deliveryInfo.houseNumber}${deliveryInfo.complement ? `, ${deliveryInfo.complement}` : ""}\n${deliveryInfo.neighborhood}`
 
       const extrasSection = extrasItems ? `\n\nADICIONAIS:\n${extrasItems}` : ""
 
       const message = `*PEDIDO DLICE SORVETES*
 
 *CLIENTE:* ${deliveryInfo.name}
+*TELEFONE:* ${deliveryInfo.phone}
 
 ${deliveryText}
 
@@ -257,13 +309,15 @@ ${deliveryInfo.paymentMethod === "Dinheiro" ? `*TROCO PARA:* R$ ${deliveryInfo.c
 
 Obrigado pela preferencia!`
 
-          // 🔑 força a string para UTF-8 antes de encodar
-          const utf8Message = Buffer.from(message, "utf-8").toString()
-          const encodedMessage = encodeURIComponent(utf8Message)
+          const encodedMessage = encodeURIComponent(message)
           const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "5588996867186"
           const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`
 
-          window.open(whatsappUrl, "_blank")
+          if (whatsappWindow) {
+            whatsappWindow.location.href = whatsappUrl
+          } else {
+            window.open(whatsappUrl, "_blank")
+          }
 
           // Limpar carrinho e adicionais após sucesso
           cart.forEach((item) => updateQuantity(item.id, 0))
@@ -271,7 +325,8 @@ Obrigado pela preferencia!`
           setIsCheckoutOpen(false)
         } catch (error) {
           console.error("Erro ao processar pedido:", error)
-          alert("Erro ao processar pedido. Tente novamente.")
+          whatsappWindow?.close()
+          throw error
         } finally {
           setIsProcessingOrder(false)
         }
