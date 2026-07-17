@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import AdminInventory from "./admin-inventory"
+import AdminDashboard from "./admin-dashboard"
 
 export default function AdminPage() {
   const supabase = getSupabaseBrowserClient()
@@ -154,21 +154,12 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-orange-50 via-pink-50 to-amber-50">
-      <header className="sticky top-0 z-20 bg-white/90 border-b border-orange-100 backdrop-blur">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-semibold">Admin • Catálogo de Produtos</h1>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500 hidden sm:inline">{session.user.email}</span>
-            <Button variant="outline" onClick={signOut} disabled={loading}>
-              {loading ? "Saindo..." : "Sair"}
-            </Button>
-          </div>
-        </div>
-      </header>
-      <div className="max-w-6xl mx-auto p-4 md:p-6">
-        <AdminInventory onAuthError={forceSignOut} />
-      </div>
-    </main>
+    <AdminDashboard
+      accessToken={session.access_token}
+      userEmail={session.user.email}
+      onAuthError={forceSignOut}
+      onSignOut={signOut}
+      signingOut={loading}
+    />
   )
 }

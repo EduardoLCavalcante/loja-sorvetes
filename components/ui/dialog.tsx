@@ -35,6 +35,15 @@ const DialogContent = React.forwardRef<
 
   const { onOpenChange } = context
 
+  React.useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onOpenChange(false)
+    }
+
+    window.addEventListener("keydown", closeOnEscape)
+    return () => window.removeEventListener("keydown", closeOnEscape)
+  }, [onOpenChange])
+
   return (
     <>
       <div
@@ -50,12 +59,7 @@ const DialogContent = React.forwardRef<
           "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 animate-in fade-in-0 zoom-in-95 slide-in-from-left-1/2 slide-in-from-top-[48%] sm:rounded-lg",
           className
         )}
-        onKeyDown={(event) => {
-          onKeyDown?.(event)
-          if (!event.defaultPrevented && event.key === "Escape") {
-            onOpenChange(false)
-          }
-        }}
+        onKeyDown={onKeyDown}
         {...props}
       >
         {children}
