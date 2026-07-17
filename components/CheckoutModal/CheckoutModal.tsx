@@ -7,7 +7,9 @@ import { Input } from '../ui/input'
 import Mapa from '../Mapa/Mapa'
 import Image from 'next/image'
 import { checkoutSchema } from '@/lib/schemas/checkout'
+import { normalizeDeliveryZoneName } from '@/lib/delivery-zones'
 import { normalizeBrazilianPhone } from '@/lib/orders/normalizers'
+import type { DeliveryZone } from '@/types/delivery-zone'
 
 type DeliveryInfo = {
   name: string
@@ -18,7 +20,8 @@ type DeliveryInfo = {
   noHouseNumber: boolean
   complement: string
   address: string
-  neighborhood: string
+  deliveryZoneId: number | null
+  quotedDeliveryFee: number | null
   deliveryType: string
 }
 
@@ -40,7 +43,6 @@ type CheckoutModalProps = {
   imageErrors: Record<string, boolean>
   setImageErrors: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
   updateQuantity: (id: string | number, quantity: number) => void
-  getTaxaEntrega: (neighborhood: string) => number
   deliveryInfo: DeliveryInfo
   setDeliveryInfo: React.Dispatch<React.SetStateAction<DeliveryInfo>>
   getTotalPrice: () => number
@@ -51,19 +53,25 @@ type CheckoutModalProps = {
   updateExtraQuantity: (extraId: string, quantity: number) => void
   getExtrasTotal: () => number
   adicionais: { id: string; nome: string; preco: number; imagem: string }[]
+  deliveryZones: DeliveryZone[]
+  deliveryZonesLoading: boolean
+  deliveryZonesError: string | null
+  onRetryDeliveryZones: () => void
 }
 
 const CHECKOUT_PROFILE_KEY = "dlice.checkout-profile.v1"
 
 type SavedCheckoutProfile = {
-  version: 1 | 2
+  version: 1 | 2 | 3
   phoneNormalized: string
   name: string
   address: string
   houseNumber?: string
   noHouseNumber?: boolean
   complement: string
-  neighborhood: string
+  neighborhood?: string
+  deliveryZoneId?: number | null
+  quotedDeliveryFee?: number | null
   paymentMethod: string
   deliveryType: string
 }
@@ -73,7 +81,7 @@ function readSavedProfile() {
     const raw = window.localStorage.getItem(CHECKOUT_PROFILE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as SavedCheckoutProfile
-    return (parsed?.version === 1 || parsed?.version === 2) && parsed.phoneNormalized ? parsed : null
+    return (parsed?.version === 1 || parsed?.version === 2 || parsed?.version === 3) && parsed.phoneNormalized ? parsed : null
   } catch {
     return null
   }
@@ -91,18 +99,23 @@ const CheckoutModal = (props: CheckoutModalProps) => {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [saveForNextTime, setSaveForNextTime] = useState(false)
   const [autoFillMessage, setAutoFillMessage] = useState<string | null>(null)
+  const selectedDeliveryZone = useMemo(
+    () => props.deliveryZones.find((zone) => zone.id === props.deliveryInfo.deliveryZoneId) || null,
+    [props.deliveryInfo.deliveryZoneId, props.deliveryZones],
+  )
+  const deliveryFee = props.deliveryInfo.deliveryType === "retirada" ? 0 : selectedDeliveryZone?.fee ?? 0
 
   const isFormValid = useMemo(() => {
     const result = checkoutSchema.safeParse(props.deliveryInfo)
-    return result.success
-  }, [props.deliveryInfo])
+    return result.success && (props.deliveryInfo.deliveryType === "retirada" || (!props.deliveryZonesLoading && !props.deliveryZonesError && props.deliveryZones.length > 0))
+  }, [props.deliveryInfo, props.deliveryZones.length, props.deliveryZonesError, props.deliveryZonesLoading])
 
   const fieldLabels: Record<string, string> = {
     name: "Nome",
     phone: "Telefone",
     address: "Endereço",
     houseNumber: "Número",
-    neighborhood: "Bairro",
+    deliveryZoneId: "Bairro",
     
     paymentMethod: "Forma de Pagamento",
     changeFor: "Troco",
@@ -113,6 +126,8 @@ const CheckoutModal = (props: CheckoutModalProps) => {
     const normalizedPhone = normalizeBrazilianPhone(phone)
 
     if (savedProfile && normalizedPhone === savedProfile.phoneNormalized) {
+      const savedZone = props.deliveryZones.find((zone) => zone.id === savedProfile.deliveryZoneId)
+        || props.deliveryZones.find((zone) => normalizeDeliveryZoneName(zone.name) === normalizeDeliveryZoneName(savedProfile.neighborhood || ""))
       props.setDeliveryInfo((current) => ({
         ...current,
         phone,
@@ -121,7 +136,8 @@ const CheckoutModal = (props: CheckoutModalProps) => {
         houseNumber: savedProfile.houseNumber || "",
         noHouseNumber: Boolean(savedProfile.noHouseNumber),
         complement: savedProfile.complement,
-        neighborhood: savedProfile.neighborhood,
+        deliveryZoneId: savedZone?.id ?? savedProfile.deliveryZoneId ?? null,
+        quotedDeliveryFee: savedZone?.fee ?? savedProfile.quotedDeliveryFee ?? null,
         paymentMethod: savedProfile.paymentMethod,
         deliveryType: savedProfile.deliveryType,
       }))
@@ -299,17 +315,24 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                         </div>
 
                         <div>
-                          <Label htmlFor="neighborhood" className="text-sm font-semibold text-gray-700">
+                          <Label htmlFor="deliveryZoneId" className="text-sm font-semibold text-gray-700">
                             Bairro
                           </Label>
-                          <Input
-                            id="neighborhood"
-                            value={props.deliveryInfo.neighborhood}
-                            onChange={(e) => props.setDeliveryInfo({ ...props.deliveryInfo, neighborhood: e.target.value })}
-                            placeholder="Seu bairro"
-                            className={`mt-2 p-3 rounded-xl border-2 focus:border-pink-300 ${formErrors.neighborhood ? "border-red-300" : "border-orange-100"}`}
-                          />
-                          {formErrors.neighborhood && <p className="text-red-500 text-xs mt-1">{formErrors.neighborhood}</p>}
+                          <select
+                            id="deliveryZoneId"
+                            value={props.deliveryInfo.deliveryZoneId ?? ""}
+                            onChange={(event) => {
+                              const zone = props.deliveryZones.find((item) => item.id === Number(event.target.value)) || null
+                              props.setDeliveryInfo({ ...props.deliveryInfo, deliveryZoneId: zone?.id ?? null, quotedDeliveryFee: zone?.fee ?? null })
+                            }}
+                            disabled={props.deliveryZonesLoading || Boolean(props.deliveryZonesError) || props.deliveryInfo.deliveryType === "retirada"}
+                            className={`mt-2 w-full rounded-xl border-2 bg-white p-3 focus:border-pink-300 ${formErrors.deliveryZoneId ? "border-red-300" : "border-orange-100"}`}
+                          >
+                            <option value="">{props.deliveryZonesLoading ? "Carregando bairros..." : "Selecione seu bairro"}</option>
+                            {props.deliveryZones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name} — {zone.fee === 0 ? "Grátis" : `R$ ${zone.fee.toFixed(2)}`}</option>)}
+                          </select>
+                          {props.deliveryZonesError ? <p className="mt-1 text-xs text-red-500">{props.deliveryZonesError} <button type="button" onClick={props.onRetryDeliveryZones} className="font-semibold underline">Tentar novamente</button></p> : null}
+                          {formErrors.deliveryZoneId && <p className="mt-1 text-xs text-red-500">{formErrors.deliveryZoneId}</p>}
                         </div>
                       </div>
 
@@ -468,19 +491,16 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                             if (props.deliveryInfo.deliveryType === "retirada") {
                               return <span className="text-green-600 font-semibold">Gratuita (Retirada)</span>
                             }
-                            const taxaEntrega = props.getTaxaEntrega(props.deliveryInfo.neighborhood)
                             return (
-                              <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
-                                {taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}
+                              <span className={selectedDeliveryZone ? "text-green-600 font-semibold" : ""}>
+                                {!selectedDeliveryZone ? "Selecione um bairro" : deliveryFee === 0 ? "Grátis" : `R$ ${deliveryFee.toFixed(2)}`}
                               </span>
                             )
                           })()}
                         </div>
                       </div>
                       {(() => {
-                        const taxaEntrega =
-                          props.deliveryInfo.deliveryType === "retirada" ? 0 : props.getTaxaEntrega(props.deliveryInfo.neighborhood)
-                        const totalComFrete = props.getTotalPrice() + taxaEntrega + props.getExtrasTotal()
+                        const totalComFrete = props.getTotalPrice() + deliveryFee + props.getExtrasTotal()
                         return (
                           <div className="border-t border-gray-200 pt-3">
                             <div className="flex justify-between text-xl font-bold text-gray-800">
@@ -643,8 +663,7 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                     </div>
 
                     {(() => {
-                      const taxaEntrega = props.getTaxaEntrega(props.deliveryInfo.neighborhood)
-                      const totalComFrete = props.getTotalPrice() + taxaEntrega
+                      const totalComFrete = props.getTotalPrice() + deliveryFee
                       return (
                         <div className="border-t border-orange-100 pt-6 mb-6">
                           <div className="space-y-2 mb-4">
@@ -654,9 +673,7 @@ const CheckoutModal = (props: CheckoutModalProps) => {
                             </div>
                             <div className="flex justify-between text-gray-600">
                               <span>Entrega:</span>
-                              <span className={taxaEntrega > 0 ? "text-green-600 font-semibold" : ""}>
-                                {taxaEntrega > 0 ? `R$ ${taxaEntrega.toFixed(2)}` : "Combinar com Vendedor"}
-                              </span>
+                              <span className={selectedDeliveryZone ? "text-green-600 font-semibold" : ""}>{selectedDeliveryZone ? deliveryFee === 0 ? "Grátis" : `R$ ${deliveryFee.toFixed(2)}` : "Calculada no checkout"}</span>
                             </div>
                           </div>
                           <div className="flex justify-between items-center text-2xl font-bold border-t border-orange-100 pt-4">

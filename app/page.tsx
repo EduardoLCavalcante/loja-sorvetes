@@ -1,8 +1,7 @@
 "use client"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useCart } from "./context/CartContext"
 import ProductModal from "@/components/ProductModal/ProductModal"
-import { getTaxaEntrega } from "@/lib/utils/delivery"
 import HeaderSection from "@/components/home/HeaderSection"
 import HeroSection from "@/components/home/HeroSection"
 import ProductsSection from "@/components/home/ProductsSection"
@@ -14,6 +13,7 @@ import { adicionais } from "@/lib/data/extra"
 import { ALL_CATEGORIES } from "@/lib/constants"
 import CheckoutModal from "@/components/CheckoutModal/CheckoutModal"
 import { normalizeBrazilianPhone } from "@/lib/orders/normalizers"
+import type { DeliveryZone } from "@/types/delivery-zone"
 
 const CHECKOUT_PROFILE_KEY = "dlice.checkout-profile.v1"
 const formatProductName = (name: string) =>
@@ -59,7 +59,8 @@ export default function DliceEcommerce() {
     houseNumber: "",
     noHouseNumber: false,
     complement: "",
-    neighborhood: "",
+    deliveryZoneId: null as number | null,
+    quotedDeliveryFee: null as number | null,
     paymentMethod: "",
     deliveryType: "entrega", // Adicionado campo para tipo de entrega
     changeFor: "",
@@ -107,6 +108,26 @@ export default function DliceEcommerce() {
   const [productModal, setProductModal] = useState<ProductWithDefaults | null>(null)
   const [modalImageError, setModalImageError] = useState(false)
   const [isProcessingOrder, setIsProcessingOrder] = useState(false)
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([])
+  const [deliveryZonesLoading, setDeliveryZonesLoading] = useState(true)
+  const [deliveryZonesError, setDeliveryZonesError] = useState<string | null>(null)
+
+  const loadDeliveryZones = useCallback(async () => {
+    try {
+      setDeliveryZonesLoading(true)
+      setDeliveryZonesError(null)
+      const response = await fetch("/api/delivery-zones", { cache: "no-store" })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload?.error || "Não foi possível carregar os bairros de entrega.")
+      setDeliveryZones(Array.isArray(payload?.deliveryZones) ? payload.deliveryZones : [])
+    } catch (requestError: any) {
+      setDeliveryZonesError(requestError?.message || "Não foi possível carregar os bairros de entrega.")
+    } finally {
+      setDeliveryZonesLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { void loadDeliveryZones() }, [loadDeliveryZones])
   // Load products from Supabase API route
   useEffect(() => {
     async function load() {
@@ -225,7 +246,22 @@ export default function DliceEcommerce() {
       })
       const orderPayload = await orderResponse.json().catch(() => ({}))
       if (!orderResponse.ok) {
+        if (orderPayload?.code === "DELIVERY_FEE_CHANGED" && orderPayload?.deliveryZone) {
+          const zone = orderPayload.deliveryZone as DeliveryZone
+          setDeliveryInfo((current) => ({ ...current, deliveryZoneId: zone.id, quotedDeliveryFee: zone.fee }))
+          void loadDeliveryZones()
+        }
+        if (orderPayload?.code === "DELIVERY_ZONE_UNAVAILABLE") {
+          setDeliveryInfo((current) => ({ ...current, deliveryZoneId: null, quotedDeliveryFee: null }))
+          void loadDeliveryZones()
+        }
         throw new Error(orderPayload?.error || "Não foi possível registrar o pedido.")
+      }
+
+      const pricing = orderPayload?.pricing
+      const serverDelivery = orderPayload?.delivery
+      if (!pricing || !Number.isFinite(pricing.subtotal) || !Number.isFinite(pricing.extrasTotal) || !Number.isFinite(pricing.deliveryFee) || !Number.isFinite(pricing.total)) {
+        throw new Error("Não foi possível confirmar os valores do pedido.")
       }
 
       if (shouldSaveCheckoutData) {
@@ -240,18 +276,20 @@ export default function DliceEcommerce() {
         window.localStorage.setItem(
           CHECKOUT_PROFILE_KEY,
           JSON.stringify({
-            version: 2,
+            version: 3,
             phoneNormalized,
             // O nome salvo é preservado quando o telefone já era conhecido neste dispositivo.
             name:
-              (savedProfile?.version === 1 || savedProfile?.version === 2) && savedProfile?.phoneNormalized === phoneNormalized
+              (savedProfile?.version === 1 || savedProfile?.version === 2 || savedProfile?.version === 3) && savedProfile?.phoneNormalized === phoneNormalized
                 ? savedProfile.name
                 : deliveryInfo.name.trim(),
             address: deliveryInfo.address.trim(),
             houseNumber: deliveryInfo.noHouseNumber ? "S/N" : deliveryInfo.houseNumber.trim(),
             noHouseNumber: deliveryInfo.noHouseNumber,
             complement: deliveryInfo.complement.trim(),
-            neighborhood: deliveryInfo.neighborhood.trim(),
+            deliveryZoneId: serverDelivery?.deliveryZoneId ?? null,
+            quotedDeliveryFee: pricing.deliveryFee,
+            neighborhood: serverDelivery?.neighborhood ?? "",
             paymentMethod: deliveryInfo.paymentMethod,
             deliveryType: deliveryInfo.deliveryType,
           }),
@@ -277,15 +315,15 @@ export default function DliceEcommerce() {
         .filter(Boolean)
         .join("\n")
 
-      const subtotal = getTotalPrice()
-      const extrasTotal = getExtrasTotal()
-      const taxaEntrega = deliveryInfo.deliveryType === "retirada" ? 0 : getTaxaEntrega(deliveryInfo.neighborhood)
-      const total = subtotal + taxaEntrega + extrasTotal
+      const subtotal = pricing.subtotal
+      const extrasTotal = pricing.extrasTotal
+      const taxaEntrega = pricing.deliveryFee
+      const total = pricing.total
 
       const deliveryText =
         deliveryInfo.deliveryType === "retirada"
           ? "RETIRADA NA LOJA\nR. Idelfonso Solon de Freitas, 558 - Popular, Limoeiro do Norte - CE"
-          : `ENDERECO DE ENTREGA:\n${deliveryInfo.address}, ${deliveryInfo.noHouseNumber ? "S/N" : deliveryInfo.houseNumber}${deliveryInfo.complement ? `, ${deliveryInfo.complement}` : ""}\n${deliveryInfo.neighborhood}`
+          : `ENDERECO DE ENTREGA:\n${deliveryInfo.address}, ${deliveryInfo.noHouseNumber ? "S/N" : deliveryInfo.houseNumber}${deliveryInfo.complement ? `, ${deliveryInfo.complement}` : ""}\n${serverDelivery?.neighborhood || "Bairro não informado"}`
 
       const extrasSection = extrasItems ? `\n\nADICIONAIS:\n${extrasItems}` : ""
 
@@ -392,7 +430,10 @@ Obrigado pela preferencia!`
         updateExtraQuantity={updateExtraQuantity}
         getExtrasTotal={getExtrasTotal}
         adicionais={adicionais}
-        getTaxaEntrega={getTaxaEntrega}
+        deliveryZones={deliveryZones}
+        deliveryZonesLoading={deliveryZonesLoading}
+        deliveryZonesError={deliveryZonesError}
+        onRetryDeliveryZones={() => void loadDeliveryZones()}
         generateWhatsAppMessage={generateWhatsAppMessage}
         isProcessingOrder={isProcessingOrder}
       />

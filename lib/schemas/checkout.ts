@@ -7,7 +7,8 @@ export const checkoutSchema = z.object({
   houseNumber: z.string(),
   noHouseNumber: z.boolean(),
   complement: z.string(),
-  neighborhood: z.string(),
+  deliveryZoneId: z.number().int().positive().nullable(),
+  quotedDeliveryFee: z.number().finite().nonnegative().nullable(),
   paymentMethod: z.enum(["Pix", "Dinheiro", "Cartão(Débito)", "Cartão(Crédito)"], {
     errorMap: () => ({ message: "Selecione uma forma de pagamento" }),
   }),
@@ -21,8 +22,11 @@ export const checkoutSchema = z.object({
     if (!data.noHouseNumber && !data.houseNumber.trim()) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Número é obrigatório para entrega", path: ["houseNumber"] })
     }
-    if (!data.neighborhood.trim()) {
-      ctx.addIssue({   code: z.ZodIssueCode.custom, message: "Bairro é obrigatório para entrega", path: ["neighborhood"] })
+    if (!data.deliveryZoneId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Selecione um bairro para entrega", path: ["deliveryZoneId"] })
+    }
+    if (data.quotedDeliveryFee === null) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Taxa de entrega indisponível", path: ["quotedDeliveryFee"] })
     }
   }
   if (data.paymentMethod === "Dinheiro" && !data.changeFor.trim()) {
