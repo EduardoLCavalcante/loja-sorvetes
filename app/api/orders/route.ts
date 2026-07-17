@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { unstable_noStore as noStore } from "next/cache"
 import { adicionais } from "@/lib/data/extra"
-import { getTaxaEntrega } from "@/lib/utils/delivery"
 import { checkoutOrderSchema } from "@/lib/schemas/checkout"
 import {
   cleanCustomerName,
@@ -42,6 +41,38 @@ export async function POST(request: Request) {
     const phoneNormalized = normalizeBrazilianPhone(deliveryInfo.phone)
     if (!isValidBrazilianPhone(phoneNormalized)) {
       return jsonError("Informe um telefone brasileiro válido com DDD.", 422)
+    }
+
+    let deliveryZone: { id: number; name: string; fee: number } | null = null
+    if (deliveryInfo.deliveryType === "entrega") {
+      const { data, error } = await supabase
+        .from("delivery_zones")
+        .select("id, name, fee")
+        .eq("id", deliveryInfo.deliveryZoneId)
+        .eq("is_active", true)
+        .maybeSingle()
+
+      if (error) throw new Error(error.message)
+      if (!data) {
+        return NextResponse.json(
+          { error: "Este bairro não está mais disponível para entrega.", code: "DELIVERY_ZONE_UNAVAILABLE" },
+          { status: 409, headers: noStoreHeaders },
+        )
+      }
+
+      const fee = roundMoney(parsePrice(data.fee) ?? 0)
+      if (Math.abs(fee - (deliveryInfo.quotedDeliveryFee ?? -1)) > 0.001) {
+        return NextResponse.json(
+          {
+            error: "A taxa deste bairro foi atualizada. Revise o total e tente novamente.",
+            code: "DELIVERY_FEE_CHANGED",
+            deliveryZone: { id: Number(data.id), name: String(data.name), fee },
+          },
+          { status: 409, headers: noStoreHeaders },
+        )
+      }
+
+      deliveryZone = { id: Number(data.id), name: String(data.name), fee }
     }
 
     const productIds = Array.from(new Set(items.map((item) => Number(item.id))))
@@ -94,8 +125,7 @@ export async function POST(request: Request) {
     const extrasTotal = roundMoney(
       orderItems.filter((item) => item.line_type === "extra").reduce((total, item) => total + item.line_total, 0),
     )
-    const deliveryFee =
-      deliveryInfo.deliveryType === "retirada" ? 0 : roundMoney(getTaxaEntrega(deliveryInfo.neighborhood))
+    const deliveryFee = deliveryZone?.fee ?? 0
     const total = roundMoney(subtotal + extrasTotal + deliveryFee)
     const submittedName = cleanCustomerName(deliveryInfo.name)
 
@@ -133,7 +163,8 @@ export async function POST(request: Request) {
             : null,
         has_no_house_number: deliveryInfo.deliveryType === "entrega" && deliveryInfo.noHouseNumber,
         complement_snapshot: deliveryInfo.deliveryType === "entrega" ? deliveryInfo.complement.trim() || null : null,
-        neighborhood_snapshot: deliveryInfo.deliveryType === "entrega" ? deliveryInfo.neighborhood.trim() : null,
+        neighborhood_snapshot: deliveryZone?.name ?? null,
+        delivery_zone_id: deliveryZone?.id ?? null,
         payment_method: deliveryInfo.paymentMethod,
         change_for: deliveryInfo.paymentMethod === "Dinheiro" ? deliveryInfo.changeFor.trim() : null,
         subtotal,
@@ -164,7 +195,12 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { orderNumber: order.order_number, hasNameConflict: nameIsDifferent && !customer.is_shared_phone },
+      {
+        orderNumber: order.order_number,
+        hasNameConflict: nameIsDifferent && !customer.is_shared_phone,
+        pricing: { subtotal, extrasTotal, deliveryFee, total },
+        delivery: { deliveryZoneId: deliveryZone?.id ?? null, neighborhood: deliveryZone?.name ?? null },
+      },
       { status: 201, headers: noStoreHeaders },
     )
   } catch (error: any) {

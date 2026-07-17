@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   Loader2,
   LogOut,
+  MapPinned,
   Package,
   RefreshCw,
   Users,
@@ -22,10 +23,11 @@ import {
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import AdminDeliveryZones from "./admin-delivery-zones"
 import AdminInventory from "./admin-inventory"
 
 type Range = "today" | "7d" | "30d" | "month"
-type View = "overview" | "catalog" | "customers" | "conflicts"
+type View = "overview" | "catalog" | "delivery" | "customers" | "conflicts"
 type DetailMetric = "revenue" | "averageTicket"
 
 type DashboardData = {
@@ -50,6 +52,7 @@ const statusLabels: Record<string, string> = { received: "Recebido", confirmed: 
 const navigation = [
   { id: "overview" as const, label: "Visão geral", shortLabel: "Início", icon: LayoutDashboard },
   { id: "catalog" as const, label: "Produtos", shortLabel: "Produtos", icon: Package },
+  { id: "delivery" as const, label: "Entregas", shortLabel: "Entregas", icon: MapPinned },
   { id: "customers" as const, label: "Clientes", shortLabel: "Clientes", icon: Users },
   { id: "conflicts" as const, label: "Revisar", shortLabel: "Revisar", icon: AlertTriangle },
 ]
@@ -99,7 +102,7 @@ function SideNavigation({ currentView, onNavigate, onSignOut, signingOut, confli
         <div className="mt-auto border-t border-white/15 p-4"><button type="button" onClick={onSignOut} disabled={signingOut} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-50">{signingOut ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <LogOut className="h-[18px] w-[18px]" />}Sair</button></div>
       </aside>
       <div className="flex h-16 items-center justify-between bg-[#2a1638] px-4 text-white lg:hidden"><div className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-xl border border-white/15 bg-white/10 text-[#ffb8d2]"><IceCreamBowl className="h-5 w-5" /></span><span className="font-serif text-lg tracking-[-0.04em]">D&apos;lice Sorvetes</span></div><button type="button" onClick={onSignOut} disabled={signingOut} className="min-h-11 px-2 text-sm font-medium text-white/85">Sair</button></div>
-      <nav aria-label="Navegação administrativa" className="fixed inset-x-0 bottom-0 z-40 grid h-[calc(4.5rem+env(safe-area-inset-bottom))] grid-cols-4 border-t border-[#e8e5eb] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(42,22,56,0.08)] lg:hidden">
+      <nav aria-label="Navegação administrativa" className="fixed inset-x-0 bottom-0 z-40 grid h-[calc(4.5rem+env(safe-area-inset-bottom))] grid-cols-5 border-t border-[#e8e5eb] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(42,22,56,0.08)] lg:hidden">
         {navigation.map(({ id, shortLabel, icon: Icon }) => <button key={id} type="button" onClick={() => onNavigate(id)} className={`relative flex min-h-14 flex-col items-center justify-center gap-1 text-[10px] font-semibold transition ${currentView === id ? "text-[#c83b70]" : "text-[#746d7b]"}`}><Icon className="h-5 w-5" strokeWidth={currentView === id ? 2.3 : 1.8} /><span>{shortLabel}</span>{id === "conflicts" && conflictsCount > 0 ? <span className="absolute top-1 right-[calc(50%-1.5rem)] grid h-4 min-w-4 place-items-center rounded-full bg-[#c83b70] px-1 text-[9px] text-white">{conflictsCount > 9 ? "9+" : conflictsCount}</span> : null}</button>)}
       </nav>
     </>
@@ -168,7 +171,7 @@ export default function AdminDashboard({ accessToken, userEmail, onAuthError, on
 
   const currentConflict = dashboard?.conflicts[conflictIndex]
   const hasConflicts = Boolean(dashboard?.conflictsCount)
-  const pageTitle = useMemo(() => ({ overview: "Visão geral", catalog: "Catálogo", customers: "Clientes", conflicts: "Revisar nomes" }[view]), [view])
+  const pageTitle = useMemo(() => ({ overview: "Visão geral", catalog: "Catálogo", delivery: "Entregas", customers: "Clientes", conflicts: "Revisar nomes" }[view]), [view])
   const selectedMetric = detailMetric && dashboard ? {
     revenue: {
       title: "Faturamento",
@@ -193,6 +196,7 @@ export default function AdminDashboard({ accessToken, userEmail, onAuthError, on
       <div className="mx-auto max-w-[1520px] px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
         {error ? <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><span>{error}</span><Button size="sm" variant="outline" onClick={() => void loadDashboard()} className="border-red-200 bg-white text-red-800 hover:bg-red-100">Tentar novamente</Button></div> : null}
         {view === "catalog" ? <section><div className="mb-6 flex items-end justify-between gap-4"><div><h1 className="font-serif text-3xl tracking-[-0.045em] text-[#2a1638] sm:text-4xl">Catálogo</h1><p className="mt-2 text-sm text-[#746d7b]">Edite produtos, preços, categorias e disponibilidade.</p></div><Button variant="outline" onClick={() => setView("overview")} className="hidden border-[#e2dbe5] bg-white text-[#4e3b57] hover:bg-[#fff1f5] sm:flex">Voltar à visão geral</Button></div><AdminInventory onAuthError={onAuthError} /></section> : null}
+        {view === "delivery" ? <AdminDeliveryZones accessToken={accessToken} onAuthError={onAuthError} /> : null}
         {view === "overview" ? <section><div className="flex flex-wrap items-end justify-between gap-4"><div><h1 className="font-serif text-3xl tracking-[-0.045em] text-[#2a1638] sm:text-5xl">Visão geral</h1><p className="mt-1.5 max-w-xl text-sm text-[#746d7b] sm:mt-2">Acompanhe vendas, clientes e pedidos recebidos pelo aplicativo.</p></div><div className="flex w-full items-center gap-2 sm:w-auto"><label className="sr-only" htmlFor="dashboard-range">Período</label><div className="relative min-w-0 flex-1 sm:flex-none"><CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#746d7b]" /><select id="dashboard-range" value={range} onChange={(event) => setRange(event.target.value as Range)} className="h-11 w-full appearance-none rounded-lg border border-[#ded9e1] bg-white py-2 pl-9 pr-8 text-sm font-medium text-[#3c3043] outline-none transition focus:border-[#c83b70] focus:ring-2 focus:ring-[#f9c8d9] sm:w-auto">{Object.entries(rangeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div><Button variant="outline" size="icon" onClick={() => void loadDashboard()} disabled={loading} className="h-11 w-11 shrink-0 border-[#ded9e1] bg-white text-[#4e3b57] hover:bg-[#fff1f5]" aria-label="Atualizar indicadores"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></Button></div></div>
           {loading && !dashboard ? <DashboardSkeleton /> : dashboard ? <><div className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-4 xl:grid-cols-4"><MetricCard label="Pedidos" value={numberFormatter.format(dashboard.summary.orders)} detail={`Válidos em ${rangeLabels[range].toLowerCase()}`} icon={ClipboardList} /><MetricCard label="Faturamento" value={formatCurrency(dashboard.summary.revenue)} detail="Inclui taxa de entrega" icon={CircleDollarSign} onViewValue={() => setDetailMetric("revenue")} /><MetricCard label="Clientes únicos" value={numberFormatter.format(dashboard.summary.customers)} detail={`${dashboard.summary.newCustomers} novos no período`} icon={Users} /><MetricCard label="Ticket médio" value={formatCurrency(dashboard.summary.averageTicket)} detail={`${numberFormatter.format(dashboard.summary.itemsSold)} itens vendidos`} icon={BarChart3} onViewValue={() => setDetailMetric("averageTicket")} /></div>
             <button type="button" onClick={() => setView("conflicts")} className="mt-4 flex w-full items-center gap-3 rounded-xl border border-[#f4cad8] bg-[#fff8fa] p-4 text-left transition hover:bg-[#fff1f5]"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#ffe1eb] text-[#c83b70]"><AlertTriangle className="h-5 w-5" /></span><span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-[#54243b]">{hasConflicts ? `${dashboard.conflictsCount} nome${dashboard.conflictsCount === 1 ? " para revisar" : "s para revisar"}` : "Cadastros em dia"}</span><span className="mt-0.5 block truncate text-xs text-[#7b6070]">{hasConflicts ? "Verifique nomes diferentes associados ao mesmo telefone." : "Não há divergências de nome pendentes."}</span></span>{hasConflicts ? <ChevronRight className="h-5 w-5 shrink-0 text-[#c83b70]" /> : <Check className="h-5 w-5 shrink-0 text-emerald-600" />}</button>
